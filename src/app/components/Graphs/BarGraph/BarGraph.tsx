@@ -1,6 +1,6 @@
 import { Entry } from '@/types/types';
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
   data: Entry[];
@@ -8,13 +8,11 @@ interface Props {
 }
 
 const BarGraph = ({ data, key }: Props) => {
-  const title = data.map((data) => data.title);
   return (
-    <div className="flex w-full items-center justify-between">
-      <h1 className="text-[17px] font-bold">{title[0]}:</h1>
+    <ResponsiveContainer>
       <BarChart
         height={130}
-        width={280}
+        width={270}
         data={data}
         key={key}
         margin={{
@@ -30,7 +28,7 @@ const BarGraph = ({ data, key }: Props) => {
         <Tooltip />
         <Bar yAxisId="left" dataKey="value" fill="#8884d8" />
       </BarChart>
-    </div>
+    </ResponsiveContainer>
   );
 };
 

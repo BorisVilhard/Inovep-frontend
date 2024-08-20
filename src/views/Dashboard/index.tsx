@@ -11,10 +11,8 @@ import { mergeDocumentData } from '../../../utils/mergeDatasets';
 import { detectStructuralChanges } from '../../../utils/detectDocumentChnages';
 import { generateChart } from '../../../utils/ChartGenerator';
 import classNames from 'classnames';
-
 import ChartEditBar from './components/ChartEditBar';
-import { debounce } from 'lodash';
-
+import { MdDelete } from 'react-icons/md';
 interface ModalContent {
   added: string[];
   removed: string[];
@@ -261,7 +259,7 @@ const Dashboard = (props: Props) => {
   const [chartEdit, setChartEdit] = useState<number | string | undefined>(undefined);
   const [editMode, setEditMode] = useState(props.isEditMode);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-
+  const [isElementHovered, setIsElementHovered] = useState<number | null>(null);
   useEffect(() => {
     setEditMode(props.isEditMode);
   }, [props.isEditMode]);
@@ -295,6 +293,24 @@ const Dashboard = (props: Props) => {
     e.preventDefault();
     setChartEdit(id);
     setIsDraggingOver(true);
+  };
+
+  const updateChartType = useCallback((id: number, newChartType: 'Area' | 'Bar' | 'Pie') => {
+    setDashboardData((currentData) =>
+      currentData.map((section) => ({
+        ...section,
+        [Object.keys(section)[0]]: section[Object.keys(section)[0]].map((entry) =>
+          entry.id === id ? { ...entry, chartType: newChartType } : entry,
+        ),
+      })),
+    );
+  }, []);
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>, id: number) => {
+    event.preventDefault();
+    const chartType = event.dataTransfer.getData('chartType');
+    console.log(chartType);
+    updateChartType(id, chartType as 'Area' | 'Bar' | 'Pie');
   };
 
   return (
@@ -354,11 +370,9 @@ const Dashboard = (props: Props) => {
                     <ChartWrapper
                       key={index}
                       title={numberCatcher(category)}
-                      className={classNames('relative min-h-[100px] w-auto space-y-4', {
+                      className={classNames('relative min-h-[100px] w-auto space-y-4 bg-white', {
                         'min-w-[100px]': editMode,
                         'min-w-[400px]': !editMode,
-                        'bg-[#dfe8f7]': category === chartEdit,
-                        'bg-white': category !== chartEdit,
                       })}
                     >
                       {editMode && (
@@ -370,8 +384,12 @@ const Dashboard = (props: Props) => {
                         />
                       )}
 
-                      {Object.entries(entries).map(([index, items]) => (
-                        <div className="my-[10px] flex w-full items-center justify-between gap-3">
+                      {Object.entries(entries).map(([index, items], key) => (
+                        <div
+                          onMouseEnter={() => setIsElementHovered(items.id)}
+                          onMouseLeave={() => setIsElementHovered(null)}
+                          className="my-[10px] flex w-full items-center justify-between gap-3"
+                        >
                           <h1 className="text-[17px] font-bold">{items.data[0].title}:</h1>
                           {items.data.length > 1 ? (
                             <div className="relative flex w-fit flex-wrap items-center justify-end transition-all duration-300 ease-in-out">
@@ -382,36 +400,93 @@ const Dashboard = (props: Props) => {
                                   chartId={items.id}
                                 />
                               )}
+                              {category === chartEdit && (
+                                <input
+                                  className="absolute left-[3px] top-[3px] z-50 h-[20px] w-[20px]"
+                                  type="checkbox"
+                                />
+                              )}
 
-                              {items.id === chartEdit && (
-                                <section className="stage absolute z-30">
+                              {(items.id === chartEdit || category === chartEdit) && (
+                                <div
+                                  onDrop={(event) => handleDrop(event, items.id)}
+                                  onDragOver={(e) => e.preventDefault()}
+                                  className="stage absolute z-30"
+                                >
                                   <figure className="ball bubble absolute">
                                     <div className="absolute inset-0 z-30 rounded-[5px] bg-shades-black bg-opacity-25 backdrop-blur-sm"></div>
                                     <div className="absolute inset-0  z-40 flex items-center justify-center text-shades-white">
-                                      <h1 className="text-3xl font-bold">Change Chart</h1>
+                                      <h1 className="text-[25px] font-bold">
+                                        {category === chartEdit ? 'Combine Charts' : 'Change Chart'}
+                                      </h1>
                                     </div>
                                   </figure>
-                                </section>
+                                </div>
                               )}
                               <div
                                 onDragOver={(e) => handleDragOver(items.id, e)}
-                                className={classNames('flex h-[130px]', {
-                                  'w-[210px]': editMode,
-                                  'w-[280px]': !editMode,
+                                className={classNames('flex h-[160px]', {
+                                  'w-[220px]': editMode,
+                                  'w-[290px]': !editMode,
                                 })}
                               >
                                 {generateChart(items.chartType, items.data, index)}
                               </div>
                             </div>
                           ) : (
-                            items.data.map((item, idx) => (
-                              <div
-                                key={idx}
-                                className="relative min-w-[70px] rounded-md bg-primary-90 p-4 text-center"
-                              >
-                                <h1 className="text-[20px] text-shades-white">{item.value}</h1>
-                              </div>
-                            ))
+                            <div className="relative">
+                              {items.data.map((item, index) => (
+                                <>
+                                  {editMode && isElementHovered === items.id && (
+                                    <a className="absolute right-0 top-0 z-50">
+                                      <div className="flex h-full w-full cursor-pointer items-center justify-center rounded-full  bg-red-700 p-[6px]">
+                                        <MdDelete color="white" />
+                                      </div>
+                                    </a>
+                                  )}
+                                  {typeof item.value === 'number' && category === chartEdit && (
+                                    <input
+                                      className="absolute left-[3px] top-[3px] z-50 h-[20px] w-[20px]"
+                                      type="checkbox"
+                                    />
+                                  )}
+
+                                  {typeof item.value === 'number' &&
+                                    (items.id === chartEdit || category === chartEdit) && (
+                                      <div
+                                        onDrop={(event) => handleDrop(event, items.id)}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        className="stage absolute z-30"
+                                      >
+                                        <figure className="ball bubble absolute">
+                                          <div className="absolute inset-0 z-30 rounded-[5px] bg-shades-black bg-opacity-25 backdrop-blur-sm"></div>
+                                          <div className="absolute inset-0 z-40 flex items-center justify-center text-shades-white">
+                                            <h1 className="text-[15px] font-bold">
+                                              {category === chartEdit
+                                                ? 'Combine Charts'
+                                                : 'Change Chart'}
+                                            </h1>
+                                          </div>
+                                        </figure>
+                                      </div>
+                                    )}
+                                  <div
+                                    key={index}
+                                    className={classNames(
+                                      'relative w-fit rounded-md bg-primary-90 p-4 text-center',
+                                      {
+                                        'min-w-[210px]':
+                                          category === chartEdit && typeof item.value === 'number',
+                                        'min-w-[70px]':
+                                          category !== chartEdit && typeof item.value === 'number',
+                                      },
+                                    )}
+                                  >
+                                    <h1 className="text-[20px] text-shades-white">{item.value}</h1>
+                                  </div>
+                                </>
+                              ))}
+                            </div>
                           )}
                         </div>
                       ))}

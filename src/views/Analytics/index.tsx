@@ -19,7 +19,7 @@ const Analytics = () => {
     data: string,
     element: React.ReactNode,
   ) => {
-    event.dataTransfer.setData('text', data);
+    event.dataTransfer.setData('chartType', data);
     dragCopy = document.createElement('div');
     dragCopy.style.backgroundColor = 'white';
     dragCopy.style.width = '150px';
@@ -33,26 +33,41 @@ const Analytics = () => {
     event.dataTransfer.setDragImage(dragCopy, 0, 0);
   };
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (dragCopy) {
-      document.body.removeChild(dragCopy);
-      dragCopy = null;
-    }
-  };
-
   return (
     <div>
       <Drawer isOpened={(e) => setOpen(e)}>
         <div className="mt-[200px] flex h-[100vh] flex-col gap-[100px]">
           <div
             ref={reef}
-            onDragStart={(event: any) => dragStartHandler(event, '0', 'hello')}
-            onDragOver={handleDrop}
+            onDragStart={(event: any) => dragStartHandler(event, 'Area', 'AreaChart')}
             draggable
             className="cursor-grab"
           >
             AreaChart
+          </div>
+          <div
+            ref={reef}
+            onDragStart={(event: any) => dragStartHandler(event, 'TradingLine', 'TradingLine')}
+            draggable
+            className="cursor-grab"
+          >
+            TradingLine
+          </div>
+          <div
+            ref={reef}
+            onDragStart={(event: any) => dragStartHandler(event, 'Bar', 'BarChart')}
+            draggable
+            className="cursor-grab"
+          >
+            BarChart
+          </div>
+          <div
+            ref={reef}
+            onDragStart={(event: any) => dragStartHandler(event, 'Pie', 'PieChart')}
+            draggable
+            className="cursor-grab"
+          >
+            PieChart
           </div>
         </div>
       </Drawer>
