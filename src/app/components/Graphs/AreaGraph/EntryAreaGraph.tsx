@@ -10,22 +10,20 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-interface Props {
+type Props = {
   data: Entry[];
-  key: any;
-}
+};
 
-const AreaGraph = (props: Props) => {
+const EntryAreaGraph = ({ data }: Props) => {
   return (
-    <ResponsiveContainer>
-      <AreaChart key={props.key} data={props.data} height={130} width={270}>
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data}>
         <defs>
           <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="20%" stopColor="#e6e6ff" stopOpacity={1} />
-            <stop offset="90%" stopColor="white" stopOpacity={1} />
+            <stop offset="20%" stopColor="#e6e6ff" stopOpacity={0.8} />
+            <stop offset="90%" stopColor="white" stopOpacity={0.5} />
           </linearGradient>
         </defs>
-
         <CartesianGrid
           horizontal={true}
           vertical={false}
@@ -34,21 +32,19 @@ const AreaGraph = (props: Props) => {
           strokeOpacity={'0.4'}
           strokeDasharray="0"
         />
-
-        <XAxis dataKey="date" strokeOpacity={0} fontSize={'14px'} />
+        <XAxis dataKey="date" />
+        <YAxis />
         <Tooltip />
-        <YAxis strokeOpacity={0} fontSize={'14px'} />
         <Area
           type="monotone"
-          dataKey="value"
-          fill="url(#colorUv)"
-          strokeWidth={'3.8px'}
+          dataKey={'value'}
           stroke="#053fff"
-          data={props.data}
+          strokeWidth={2.5}
+          fill="url(#colorUv)"
         />
       </AreaChart>
     </ResponsiveContainer>
   );
 };
 
-export default AreaGraph;
+export default EntryAreaGraph;

@@ -7,7 +7,7 @@ export interface Entry {
 }
 
 export interface IndexedEntries {
-  chartType: 'Area' | 'Bar' | 'Pie';
+  chartType: 'EntryArea' | 'IndexArea' | 'Bar' | 'Pie' | 'Line' | 'TradingLine';
   data: Entry[];
   id: number;
 }

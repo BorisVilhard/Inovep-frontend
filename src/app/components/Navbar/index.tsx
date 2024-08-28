@@ -38,7 +38,7 @@ const Navbar = () => {
               width={50}
               height={50}
               alt="profile"
-              className="rounded-full"
+              className="z-50 rounded-full"
               onClick={() => setMenuOpen(!isMenuOpen)}
             />
             {isMenuOpen && (

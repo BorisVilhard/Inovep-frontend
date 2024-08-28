@@ -1,9 +1,9 @@
 import { Entry } from '@/types/types';
-import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import React, { useEffect } from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { aggregateData } from '../../../../../utils/aggregateData';
 interface Props {
   data: Entry[];
-  key: string;
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
@@ -39,6 +39,7 @@ const PieGraph = (props: Props) => {
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
+        <Legend />
       </PieChart>
     </ResponsiveContainer>
   );

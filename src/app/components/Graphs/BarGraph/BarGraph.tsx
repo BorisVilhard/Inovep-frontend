@@ -4,17 +4,15 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 interface Props {
   data: Entry[];
-  key: string;
 }
 
-const BarGraph = ({ data, key }: Props) => {
+const BarGraph = ({ data }: Props) => {
   return (
     <ResponsiveContainer>
       <BarChart
         height={130}
         width={270}
         data={data}
-        key={key}
         margin={{
           top: 20,
           right: 30,
