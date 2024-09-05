@@ -1,13 +1,19 @@
+import { useEffect } from 'react';
 import { MdEdit } from 'react-icons/md';
 
 interface Props {
   isOpen: boolean;
+  getOpenedState?: (isOpen: boolean) => void;
   chartId: number | string;
   getChartId: (chartId: number | string | undefined) => void;
   className?: string;
 }
 
 const ChartEditBar = (props: Props) => {
+  useEffect(() => {
+    if (props.getOpenedState) props.getOpenedState(props.isOpen);
+  }, [props.isOpen]);
+
   return (
     <div>
       <div className={`absolute right-0 top-0 z-50  m-[1px] ${props.className}`}>

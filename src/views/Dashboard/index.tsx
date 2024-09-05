@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import DataBar from './components/DataBar';
 import { ChartWrapper } from './components/ChartWrapper';
-import { DocumentData, Entry, IndexedEntries } from '@/types/types';
+import { ChartType, DocumentData, Entry, IndexedEntries } from '@/types/types';
 import { numberCatcher } from '../../../utils/numberCatcher';
 import Loading from '@/app/loading';
 import { mergeDocumentData } from '../../../utils/mergeDatasets';
@@ -13,13 +13,11 @@ import ChartEditBar from './components/ChartEditBar';
 import { MdDelete } from 'react-icons/md';
 import ChartOverlay from './components/ChartOverlay';
 import { useAggregateData } from '../../../utils/aggregateData';
-import IndexLineGraph from '@/app/components/Graphs/LineGraph/IndexLineGraph';
+import { getEditMode } from '../../../utils/editModeStore';
+import { useStore } from '../../../utils/updateChart';
+import ComponentDrawer from './components/ComponentDrawer';
 
-interface Props {
-  isEditMode: boolean;
-}
-
-const Dashboard = (props: Props) => {
+const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<DocumentData>([
     {
       Alakazam: [
@@ -253,13 +251,11 @@ const Dashboard = (props: Props) => {
   const [isLoading, setLoading] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
   const [chartEdit, setChartEdit] = useState<number | string | undefined>(undefined);
-  const [editMode, setEditMode] = useState(props.isEditMode);
+  const [editMode, setEditMode] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isElementHovered, setIsElementHovered] = useState<number | null>(null);
   const [combinedData, setCombinedData] = useState<IndexedEntries[]>([]);
-  useEffect(() => {
-    setEditMode(props.isEditMode);
-  }, [props.isEditMode]);
+  const { chartType } = useStore();
 
   useEffect(() => {
     localStorage.setItem('dashboardData', JSON.stringify(dashboardData));
@@ -288,7 +284,6 @@ const Dashboard = (props: Props) => {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>, id: number) => {
     event.preventDefault();
     const chartType = event.dataTransfer.getData('chartType');
-    console.log(chartType);
     updateChartType(id, chartType as 'EntryArea' | 'IndexArea' | 'Bar' | 'Pie');
   };
 
@@ -321,9 +316,7 @@ const Dashboard = (props: Props) => {
     [dashboardData],
   );
 
-  const getDataType = (
-    chartType: 'EntryArea' | 'IndexArea' | 'Bar' | 'Pie' | 'Line' | 'TradingLine',
-  ) => {
+  const getDataType = (chartType: ChartType) => {
     switch (chartType) {
       case 'Bar' || 'Pie':
         return summaryData;
@@ -355,6 +348,7 @@ const Dashboard = (props: Props) => {
 
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center bg-white">
+      <ComponentDrawer isOpen={setEditMode} />
       <div className="absolute top-0 w-full">
         <DataBar getFileName={setFileName} isLoading={setLoading} getData={handleNewData} />
       </div>
@@ -384,6 +378,7 @@ const Dashboard = (props: Props) => {
                 <div key={docIndex}>
                   {Object.entries(document).map(([category, entries], index) => (
                     <ChartWrapper
+                      percentageDifference="15"
                       key={index}
                       title={numberCatcher(category)}
                       className={classNames(
@@ -400,9 +395,11 @@ const Dashboard = (props: Props) => {
                           isOpen={category === chartEdit}
                           getChartId={setChartEdit}
                           chartId={category}
+                          getOpenedState={(e) => {
+                            getEditMode(category === chartEdit, checkedIds);
+                          }}
                         />
                       )}
-
                       {Object.entries(entries).map(([index, items]) => (
                         <div
                           onMouseEnter={() => setIsElementHovered(items.id)}
@@ -434,12 +431,13 @@ const Dashboard = (props: Props) => {
                                   onDrop={(event) => handleDrop(event, items.id)}
                                   onDragOver={(e) => e.preventDefault()}
                                 >
-                                  <ChartOverlay textSize="27.5px">
+                                  <ChartOverlay>
                                     {category === chartEdit ? 'Combine Charts' : 'Change Chart'}
                                   </ChartOverlay>
                                 </div>
                               )}
                               <div
+                                key={items.id}
                                 onDragOver={(e) => handleDragOver(items.id, e)}
                                 className={classNames('flex h-[160px]', {
                                   'w-[210px]': editMode,
@@ -447,11 +445,11 @@ const Dashboard = (props: Props) => {
                                 })}
                               >
                                 {generateChart(
-                                  items.chartType,
-                                  (items.id === chartEdit || category === chartEdit) &&
-                                    combinedData.length > 0 &&
-                                    combinedData.map((element) => element.data === items.data)
-                                    ? getDataType(items.chartType)
+                                  checkedIds.includes(items.id) ? chartType : items.chartType,
+                                  category === chartEdit && checkedIds.includes(items.id)
+                                    ? getDataType(
+                                        checkedIds.includes(items.id) ? chartType : items.chartType,
+                                      )
                                     : items.data,
                                   index,
                                 )}

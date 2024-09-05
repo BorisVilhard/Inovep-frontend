@@ -7,12 +7,8 @@ import Button from '@/app/components/Button/Button';
 import Navbar from '@/app/components/Navbar';
 import Image from 'next/image';
 import { ReactNode } from 'react';
-import AuthProvider from './context/AuthProvider';
 import { usePathname } from 'next/navigation';
-import { signIn } from 'next-auth/react';
 import { FcGoogle } from 'react-icons/fc';
-import { Provider } from 'react-redux';
-import { store } from './redux/store';
 
 const Layout = ({ children }: { children: ReactNode }) => {
   const currentPath = usePathname();
@@ -22,10 +18,6 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="circle"></div>
       </div>
     ));
-
-    const handleClick = () => {
-      signIn('google');
-    };
 
     if (currentPath.startsWith('/auth/')) {
       return (
@@ -46,20 +38,20 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 </div>
                 <div className="h-[2px] w-full bg-neutral-30" />
               </div>
-              <Button className="gap-5" radius="squared" onClick={handleClick}>
+              <Button className="gap-5" radius="squared">
                 {currentPath.startsWith('/auth/register') ? 'Register' : 'Log In'} With
                 <FcGoogle size={'27px'} />
               </Button>
             </div>
           </div>
-          <div className="container m-[20px] hidden overflow-hidden rounded-[30px] bg-primary-30 lg:block">
+          <div className="container hidden h-[100vh] overflow-hidden bg-primary-30 md:flex md:items-end">
             <Image
               src={'/img/robot.png'}
-              width={1400}
-              height={2000}
+              width={2500}
+              height={2500}
               alt="robot image"
               layout="responsive"
-              className="h-auto w-full"
+              className="z-50 h-[95vh] w-[70vw] md:w-auto"
             />
             {circles}
           </div>
@@ -67,10 +59,10 @@ const Layout = ({ children }: { children: ReactNode }) => {
       );
     } else {
       return (
-        <Provider store={store}>
+        <>
           <Navbar />
           <div className="flex flex-col items-center justify-center">{children}</div>
-        </Provider>
+        </>
       );
     }
   };
@@ -79,11 +71,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
     <html lang="en">
       <head />
       <body>
-        <Provider store={store}>
-          <AuthProvider>
-            <RenderLayout>{children}</RenderLayout>
-          </AuthProvider>
-        </Provider>
+        <RenderLayout>{children}</RenderLayout>
       </body>
     </html>
   );

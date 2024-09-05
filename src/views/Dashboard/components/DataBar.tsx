@@ -3,6 +3,7 @@ import Dropdown from '@/app/components/Dropdown/Dropdown';
 import { GoUpload } from 'react-icons/go';
 import { DocumentData } from '@/types/types';
 import Button from '@/app/components/Button/Button';
+import { FaPlus } from 'react-icons/fa6';
 
 interface Props {
   getData: (data: DocumentData) => void;
@@ -37,6 +38,7 @@ const DataBar = ({ getData, isLoading, getFileName }: Props) => {
 
   return (
     <div className="relative mb-5 flex w-full flex-col items-center justify-start px-[25px] py-[15px]">
+      <h1 className="mb-[30px] text-[20px] font-bold">Filex.excel</h1>
       <form
         className="flex w-[95%] flex-col items-center justify-center gap-[20px]"
         onSubmit={handleSubmit}
@@ -56,9 +58,6 @@ const DataBar = ({ getData, isLoading, getFileName }: Props) => {
               <GoUpload />
             </a>
           </label>
-          <Button type="secondary" htmlType="submit">
-            submit
-          </Button>
           <Dropdown
             name="mediaType"
             className="w-[250px]"
@@ -68,6 +67,12 @@ const DataBar = ({ getData, isLoading, getFileName }: Props) => {
             ]}
             onChange={() => {}}
           />
+          <Button type="secondary" htmlType="submit">
+            submit
+          </Button>
+          <Button type="secondary" className="gap-2" htmlType="submit">
+            dashboard <FaPlus />
+          </Button>
         </div>
         {file?.name && (
           <h1 className="mt-[14px] text-[14px] text-shades-white">Selected file: {file.name}</h1>

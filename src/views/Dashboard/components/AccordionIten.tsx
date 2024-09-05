@@ -1,16 +1,20 @@
 import Image from 'next/image';
 import ReactDOMServer from 'react-dom/server';
 import React from 'react';
+import { useStore } from '../../../../utils/editModeStore';
+import classNames from 'classnames';
+import { setChartData } from '../../../../utils/updateChart';
+import { ChartType } from '@/types/types';
 
 type Props = {
-  type: string;
+  type: ChartType;
   title: string;
   imageUrl: string;
-  draggable?: boolean;
 };
 
-export const AccordionItem: React.FC<Props> = ({ type, title, imageUrl, draggable }) => {
+export const AccordionItem: React.FC<Props> = ({ type, title, imageUrl }) => {
   let dragCopy: HTMLDivElement | null = null;
+  const { combiningData } = useStore();
 
   const dragStartHandler = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('chartType', type);
@@ -29,9 +33,16 @@ export const AccordionItem: React.FC<Props> = ({ type, title, imageUrl, draggabl
 
   return (
     <div
+      onClick={combiningData ? () => setChartData(type) : () => {}}
       onDragStart={dragStartHandler}
-      draggable={draggable}
-      className="flex h-[100px] w-[150px] cursor-grab flex-col items-center justify-center rounded-md bg-gray-700"
+      draggable={combiningData}
+      className={classNames(
+        'flex h-[100px] w-[150px] flex-col items-center justify-center rounded-md bg-gray-700',
+        {
+          'cursor-grab': !combiningData,
+          'cursor-pointer hover:border-2 hover:border-solid hover:border-primary-90': combiningData,
+        },
+      )}
     >
       <a className="text-[15px]">{title}</a>
       <Image src={imageUrl} width={100} height={100} alt="profile" />

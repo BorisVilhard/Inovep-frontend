@@ -1,5 +1,5 @@
-import Analytics from '@/views/Analytics';
+import Home from '@/views/Home';
 
 export default async function App() {
-  return <Analytics />;
+  return <Home />;
 }

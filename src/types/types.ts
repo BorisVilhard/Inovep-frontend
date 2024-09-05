@@ -7,7 +7,7 @@ export interface Entry {
 }
 
 export interface IndexedEntries {
-  chartType: 'EntryArea' | 'IndexArea' | 'Bar' | 'Pie' | 'Line' | 'TradingLine';
+  chartType: ChartType;
   data: Entry[];
   id: number;
 }
@@ -15,3 +15,5 @@ export interface IndexedEntries {
 export type DocumentData = Array<{
   [category: string]: IndexedEntries[];
 }>;
+
+export type ChartType = 'EntryArea' | 'IndexArea' | 'Bar' | 'Pie' | 'Line' | 'TradingLine';

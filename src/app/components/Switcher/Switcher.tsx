@@ -1,52 +1,43 @@
-import React, { ReactNode, useState, useEffect, Children, ReactElement } from 'react';
+// Switcher.jsx
+import classNames from 'classnames';
+import React, { Children } from 'react';
 
 interface SwitcherItemProps {
-  label: string;
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
-const SwitcherItem: React.FC<SwitcherItemProps> = () => null;
+const SwitcherItem: React.FC<SwitcherItemProps> = ({ children }) => {
+  return <div>{children}</div>;
+};
 
 interface SwitcherProps {
-  children: ReactNode;
-  activeChildren?: (child: ReactNode) => void;
+  children: React.ReactNode;
+  activeIndex: number;
 }
 
 interface SwitcherComponent extends React.FC<SwitcherProps> {
   Item: typeof SwitcherItem;
 }
 
-const Switcher: SwitcherComponent = ({ children, activeChildren }) => {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    const activeChild = Children.toArray(children)[activeIndex] as ReactElement<SwitcherItemProps>;
-    if (activeChildren && activeChild) {
-      activeChildren(activeChild.props.children);
-    }
-  }, [activeIndex, children, activeChildren]);
-
-  const handleClick = (index: number) => {
-    setActiveIndex(index);
-  };
+const Switcher: SwitcherComponent = ({ children, activeIndex }) => {
+  const childArray = Children.toArray(children);
 
   return (
-    <div>
+    <div className="flex flex-col items-center justify-center">
       <div className="mb-5 flex items-center gap-3">
-        {Children.map(children, (child, index) => {
-          if (React.isValidElement<SwitcherItemProps>(child)) {
-            return (
-              <div
-                key={index}
-                onClick={() => handleClick(index)}
-                className={`cursor-pointer ${index === activeIndex ? 'font-bold' : ''}`}
-              >
-                {child.props.label}
-              </div>
-            );
-          }
-          return null;
-        })}
+        {childArray.map((_, index) => (
+          <div
+            key={index}
+            className={classNames('h-[15px] w-[80px] cursor-pointer rounded-full', {
+              'bg-primary-90': index !== activeIndex,
+              'bg-blue-200': index === activeIndex,
+            })}
+          />
+        ))}
+      </div>
+      <div className="w-full">
+        {React.isValidElement<SwitcherItemProps>(childArray[activeIndex]) &&
+          childArray[activeIndex]}
       </div>
     </div>
   );

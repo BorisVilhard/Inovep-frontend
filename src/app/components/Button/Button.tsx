@@ -40,7 +40,7 @@ const Button = ({
           'button-B1 px-[35px] py-[18px]': size === 'large',
           'button-B1 px-[26px] py-[13px]': size === 'medium',
           'button-B2 px-[18px] py-[7px]': size === 'small',
-          'bg-shades-black text-shades-white': type === 'primary' && !disabled,
+          'bg-gray-800 text-shades-white': type === 'primary' && !disabled,
           'bg-primary-90 text-shades-white': type === 'secondary' && !disabled,
           'cursor-not-allowed border-neutral-30 bg-neutral-30 text-neutral-60': disabled,
         },
