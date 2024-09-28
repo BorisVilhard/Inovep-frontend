@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import Button from '../Button/Button';
@@ -18,13 +18,12 @@ const Navbar = () => {
   };
 
   const pages = [
-    { name: 'Home', url: '/', protected: false },
     { name: 'Dashboard', url: '/dashboard', protected: true },
     { name: 'Report', url: '/report', protected: true },
   ];
 
   return (
-    <div className="sticky left-0 top-0 z-50 mx-auto bg-shades-white px-4 text-shades-white">
+    <div className="relative z-50 mx-auto bg-shades-white px-4 text-shades-white">
       <div className="flex w-full items-center justify-between">
         <Image src={companyLogo} width={85} height={85} alt="company logo" />
         <nav className="ml-[15%] hidden w-full items-center justify-between lg:flex">
@@ -59,7 +58,7 @@ const Navbar = () => {
               onClick={() => setMenuOpen(!isMenuOpen)}
             />
             {isMenuOpen && (
-              <div className="absolute right-0 top-[50px] z-50 mt-3 w-[200px] rounded-md border-2 border-solid border-primary-60 bg-primary-70 py-4 text-shades-white">
+              <div className="absolute right-0 top-[50px] z-50 mt-3 w-[200px] rounded-md border-2 border-solid border-gray-900 bg-gray-900 py-4 text-shades-white">
                 <div className="mx-2 mb-2 flex justify-center rounded-lg bg-primary-50 p-1">
                   {username}
                 </div>

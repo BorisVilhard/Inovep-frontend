@@ -292,25 +292,16 @@ input[type=file]::-webkit-file-upload-button {
     text-transform: uppercase;
   }
 
-  /* B1 */
   .button-B1 {
     font-size: 14px;
     font-weight: 700;
     line-height: 20px;
   }
 
-  /* B2 */
   .button-B2 {
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 20px;
-  }
-
-  /* B3 */
-  .button-B3 {
     font-size: 10px;
     font-weight: 700;
-    line-height: 16px;
+    line-height: 2px;
   }
 
   .layout-without-header {

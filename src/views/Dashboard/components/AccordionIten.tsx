@@ -5,14 +5,26 @@ import { useStore } from '../../../../utils/editModeStore';
 import classNames from 'classnames';
 import { setChartData } from '../../../../utils/updateChart';
 import { ChartType } from '@/types/types';
-
+import { IoCloseCircleOutline } from 'react-icons/io5';
 type Props = {
   type: ChartType;
   title: string;
   imageUrl: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  isAccessible?: boolean;
+  isChecking?: boolean;
 };
 
-export const AccordionItem: React.FC<Props> = ({ type, title, imageUrl }) => {
+export const AccordionItem: React.FC<Props> = ({
+  type,
+  title,
+  imageUrl,
+  imageHeight,
+  imageWidth,
+  isAccessible = true,
+  isChecking = false,
+}) => {
   let dragCopy: HTMLDivElement | null = null;
   const { combiningData } = useStore();
 
@@ -33,19 +45,36 @@ export const AccordionItem: React.FC<Props> = ({ type, title, imageUrl }) => {
 
   return (
     <div
-      onClick={combiningData ? () => setChartData(type) : () => {}}
+      onClick={isAccessible ? () => setChartData(type) : () => {}}
       onDragStart={dragStartHandler}
-      draggable={combiningData}
+      draggable={isAccessible && !isChecking}
       className={classNames(
-        'flex h-[100px] w-[150px] flex-col items-center justify-center rounded-md bg-gray-700',
+        'relative flex h-[120px] w-[170px] flex-col items-center  justify-between  rounded-md border-2 border-solid border-gray-700  bg-gray-700',
         {
-          'cursor-grab': !combiningData,
-          'cursor-pointer hover:border-2 hover:border-solid hover:border-primary-90': combiningData,
+          'cursor-grab': isAccessible,
+          'cursor-pointer  hover:border-primary-90':
+            isChecking && isAccessible && combiningData >= 1,
+          'cursor-default border-gray-700 ': !isChecking && !isAccessible && combiningData !== 0,
         },
       )}
     >
-      <a className="text-[15px]">{title}</a>
-      <Image src={imageUrl} width={100} height={100} alt="profile" />
+      {!isAccessible && (
+        <div className="absolute h-full w-full">
+          <div className="absolute z-40 h-full w-full bg-gray-700 opacity-70 blur-sm"></div>
+          <span className="absolute z-50 flex h-full w-full items-center justify-center  text-[65px] opacity-80">
+            <IoCloseCircleOutline color="white" />
+          </span>
+        </div>
+      )}
+
+      <a className="mt-[10px] text-[15px]">{title}</a>
+      <Image
+        src={imageUrl}
+        width={imageWidth ? imageWidth : 100}
+        height={imageHeight ? imageHeight : 100}
+        alt="profile"
+        className="mb-[20px]"
+      />
     </div>
   );
 };

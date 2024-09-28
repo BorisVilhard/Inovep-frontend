@@ -37,30 +37,33 @@ class TradingLineChart extends PureComponent<Props> {
     const { data } = this.props;
 
     return (
-      <ResponsiveContainer>
-        <AreaChart
-          data={data}
-          height={130}
-          width={270}
-          margin={{
-            top: 10,
-            right: 30,
-            left: 0,
-            bottom: 0,
-          }}
-        >
-          <defs>
-            <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
-              <stop offset={off} stopColor="green" stopOpacity={1} />
-              <stop offset={off} stopColor="red" stopOpacity={1} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <Tooltip />
-          <Area type="monotone" dataKey="value" stroke="#000" fill="url(#splitColor)" />
-        </AreaChart>
-      </ResponsiveContainer>
+      <div style={{ width: '100%', height: 150 }}>
+        <ResponsiveContainer>
+          <AreaChart
+            data={data}
+            height={130}
+            width={270}
+            margin={{
+              top: 10,
+              right: 30,
+              left: 0,
+              bottom: 0,
+            }}
+          >
+            <defs>
+              <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
+                <stop offset={off} stopColor="green" stopOpacity={1} />
+                <stop offset={off} stopColor="red" stopOpacity={1} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Area type="monotone" dataKey="value" stroke="#000" fill="url(#splitColor)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     );
   }
 }

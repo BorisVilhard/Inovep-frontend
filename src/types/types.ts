@@ -1,3 +1,5 @@
+// types.ts
+
 export type EntryValue = number | string;
 
 export interface Entry {
@@ -10,10 +12,29 @@ export interface IndexedEntries {
   chartType: ChartType;
   data: Entry[];
   id: number;
+  isChartTypeChanged?: boolean;
 }
 
-export type DocumentData = Array<{
-  [category: string]: IndexedEntries[];
-}>;
+export type ChartType =
+  | 'EntryArea'
+  | 'IndexArea'
+  | 'EntryLine'
+  | 'IndexLine'
+  | 'TradingLine'
+  | 'IndexBar'
+  | 'Bar'
+  | 'Pie'
+  | 'Line'
+  | 'Radar';
 
-export type ChartType = 'EntryArea' | 'IndexArea' | 'Bar' | 'Pie' | 'Line' | 'TradingLine';
+export interface DashboardCategory {
+  [category: string]: {
+    mainData: IndexedEntries[];
+    combinedData?: number[];
+  };
+}
+
+export interface DocumentData {
+  DashboardId: number;
+  dashboardData: DashboardCategory[];
+}

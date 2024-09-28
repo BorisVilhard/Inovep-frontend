@@ -29,11 +29,7 @@ const tailwindConfig: Config = {
       borderWidth: {
         '4': '4px',
       },
-      // borderColor: (theme: (key: string) => any) => ({
-      //   'custom-white': '#FFF',
-      //   'custom-orange': '#FF3D00',
-      //   ...theme('colors'),
-      // }),
+
       colors: {
         neutral: {
           5: '#F9F9F9',

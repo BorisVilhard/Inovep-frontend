@@ -84,10 +84,10 @@ const UserForm = () => {
           ))}
 
           <Button htmlType="submit" radius="squared">
-            Update User
+            Update
           </Button>
-          <Button htmlType="button" onClick={handleDelete} radius="squared">
-            Delete User
+          <Button htmlType="button" type="error" onClick={handleDelete} radius="squared">
+            Delete Account
           </Button>
         </div>
       </form>

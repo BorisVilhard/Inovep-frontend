@@ -43,7 +43,7 @@ const IndexLineGraph = (props: Props) => {
             <Line
               key={series.id}
               type="monotone"
-              dataKey={series.data[idx]?.title}
+              dataKey={series.data[series.id]?.title}
               stroke={colors[idx % colors.length]}
               strokeWidth={3}
               fillOpacity={1}

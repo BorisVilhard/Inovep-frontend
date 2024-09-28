@@ -1,19 +1,28 @@
 import create from 'zustand';
 
-// Define a store type
 interface EditModeStore {
-  combiningData: boolean;
+  combiningData: number;
   chartId: number | number[];
-  setCombiningDataMode: (editMode: boolean, chartId: number | number[]) => void;
+  isEditingCategory: boolean;
+  setCombiningDataMode: (
+    editMode: number,
+    isEditingCategory: boolean,
+    chartId: number | number[],
+  ) => void;
 }
 
-// Create the store
 export const useStore = create<EditModeStore>((set) => ({
-  combiningData: false,
+  combiningData: 0,
+  isEditingCategory: false,
   chartId: 0,
-  setCombiningDataMode: (combiningData, chartId) => set({ combiningData, chartId }),
+  setCombiningDataMode: (combiningData, isEditingCategory, chartId) =>
+    set({ combiningData, isEditingCategory, chartId }),
 }));
 
-export function getEditMode(editMode: boolean, chartId: number | number[]) {
-  useStore.getState().setCombiningDataMode(editMode, chartId);
+export function getEditMode(
+  editMode: number,
+  isEditingCategory: boolean,
+  chartId: number | number[],
+) {
+  useStore.getState().setCombiningDataMode(editMode, isEditingCategory, chartId);
 }

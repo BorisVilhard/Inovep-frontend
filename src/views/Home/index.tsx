@@ -1,21 +1,18 @@
 import Footer from './components/Footer';
 import HeroSection from './components/HeroSection';
-import InfoCard from './components/InfoCard';
+import WoobleCard from './components/WoobleCard/WoobleCard';
 
 const Home = () => {
   return (
-    <>
+    <div className="flex h-full w-full flex-col items-center justify-center">
       <HeroSection />
-      <InfoCard
-        label="Analyze website user behavior to enhance your strategic advantage"
-        imgSrc="/img/mac.png"
-      />
-      <InfoCard
-        label="Utilize AGI to aggregate information from all sources and provide succinct chart summaries"
-        imgSrc="/img/mac.png"
+      <WoobleCard
+        title="Subscription"
+        price="6.90 eur /month"
+        description="Get free 7day trail without adding payment info."
       />
       <Footer className="my-[100px]" />
-    </>
+    </div>
   );
 };
 

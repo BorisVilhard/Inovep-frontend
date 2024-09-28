@@ -1,59 +1,47 @@
-import { DocumentData, Entry, IndexedEntries } from '@/types/types'; // Ensure your type imports are correct
+import { DashboardCategory, DocumentData, Entry, IndexedEntries } from '@/types/types';
 
-// This function now returns an array of DocumentData.
 export function mergeDocumentData(data1: DocumentData, data2: DocumentData): DocumentData {
-  if (data1.length === 0 || data2.length === 0) return data1.length > 0 ? data1 : data2;
+  const mergedResults: DashboardCategory = {};
 
-  const mergedResults: DocumentData = [];
+  const allDashboardCategories = [...data1.dashboardData, ...data2.dashboardData];
 
-  // Merge each corresponding DocumentData object in arrays
-  for (let i = 0; i < Math.max(data1.length, data2.length); i++) {
-    let result: { [category: string]: IndexedEntries[] } = {};
+  allDashboardCategories.forEach((dashboardCategory) => {
+    Object.keys(dashboardCategory).forEach((category) => {
+      const indexedEntries1 = mergedResults[category] || [];
+      const indexedEntries2 = dashboardCategory[category] || [];
 
-    const document1 = data1[i] || {};
-    const document2 = data2[i] || {};
-
-    const allCategories = new Set([...Object.keys(document1), ...Object.keys(document2)]);
-
-    allCategories.forEach((category) => {
-      const indexedEntries1 = document1[category] || [];
-      const indexedEntries2 = document2[category] || [];
-
-      // Merge IndexedEntries arrays by index
       const mergedIndexedEntries: IndexedEntries[] = [];
 
-      const maxLength = Math.max(indexedEntries1.length, indexedEntries2.length);
+      const allEntries = [...indexedEntries1.mainData, ...indexedEntries2.mainData];
 
-      for (let j = 0; j < maxLength; j++) {
-        const entries1 = indexedEntries1[j] ? indexedEntries1[j].data : [];
-        const entries2 = indexedEntries2[j] ? indexedEntries2[j].data : [];
+      const entriesMap: { [key: string]: IndexedEntries } = {};
 
-        const mergedEntries: Entry[] = [...entries1];
+      allEntries.forEach((indexedEntry) => {
+        const { id, chartType, data } = indexedEntry;
 
-        entries2.forEach((entry2) => {
-          // Check if there is any entry in entries1 with a string value
-          const hasStringValues = entries1.some((entry1) => typeof entry1.value === 'string');
+        data.forEach((entry) => {
+          const key = `${id}-${entry.title}-${entry.date}`;
 
-          // Determine if the current entry2 should be merged
-          if (!hasStringValues || typeof entry2.value === 'number') {
-            mergedEntries.push(entry2);
+          if (!entriesMap[key]) {
+            entriesMap[key] = {
+              chartType: chartType,
+              id: id,
+              data: [],
+            };
           }
+
+          entriesMap[key].data.push(entry);
         });
+      });
 
-        if (indexedEntries1[j] || indexedEntries2[j]) {
-          mergedIndexedEntries.push({
-            chartType: indexedEntries1[j]?.chartType || indexedEntries2[j]?.chartType || 'Area',
-            id: indexedEntries1[j]?.id,
-            data: mergedEntries,
-          });
-        }
-      }
+      mergedIndexedEntries.push(...Object.values(entriesMap));
 
-      result[category] = mergedIndexedEntries;
+      mergedResults[category].mainData = mergedIndexedEntries;
     });
+  });
 
-    mergedResults.push(result);
-  }
-
-  return mergedResults;
+  return {
+    DashboardId: 1,
+    dashboardData: [mergedResults],
+  };
 }

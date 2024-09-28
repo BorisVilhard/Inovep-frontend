@@ -1,7 +1,7 @@
 import { Entry } from '@/types/types';
 import React, { useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
-import { aggregateData } from '../../../../../utils/aggregateData';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+
 interface Props {
   data: Entry[];
 }
@@ -23,8 +23,8 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 
 const PieGraph = (props: Props) => {
   return (
-    <ResponsiveContainer>
-      <PieChart width={100} height={100}>
+    <ResponsiveContainer width={'100%'} height={200}>
+      <PieChart>
         <Pie
           data={props.data}
           cx="50%"
@@ -40,6 +40,7 @@ const PieGraph = (props: Props) => {
           ))}
         </Pie>
         <Legend />
+        <Tooltip />
       </PieChart>
     </ResponsiveContainer>
   );
