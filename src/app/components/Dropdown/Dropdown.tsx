@@ -1,30 +1,40 @@
+// Dropdown.tsx
+
 import React, { useState, useEffect, useRef } from 'react';
 import classNames from 'classnames';
 import { AiOutlineDown, AiOutlineUp } from 'react-icons/ai';
-import { checkFileType } from '../../../../utils/fileTypeChecker';
+
+export interface DropdownItem {
+  id: string;
+  name: string;
+}
 
 interface Props {
   name: string;
-  value?: File | null;
-  items: File[];
-  placeholder?: React.ReactNode;
+  items: DropdownItem[]; // Array of items with id and name
+  placeholder?: string;
   className?: string;
-  onChange: (file: File) => void;
+  onSelect?: (id: string) => void; // Function to handle selection
 }
 
-const Dropdown = (props: Props) => {
+const Dropdown: React.FC<Props> = ({
+  name,
+  items,
+  placeholder = 'Select an item',
+  className,
+  onSelect,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const selectedFile = props.value;
-
-  const handleClick = () => {
+  const handleToggle = () => {
     setIsOpen(!isOpen);
   };
 
-  const handleOptionSelect = (file: File, event: React.MouseEvent<HTMLLIElement, MouseEvent>) => {
-    event.stopPropagation();
-    props.onChange(file);
+  const handleSelect = (id: string) => {
+    if (onSelect) {
+      onSelect(id);
+    }
     setIsOpen(false);
   };
 
@@ -42,19 +52,19 @@ const Dropdown = (props: Props) => {
   }, []);
 
   return (
-    <div ref={dropdownRef} data-qa="dropdown" className={`relative ${props.className}`}>
+    <div ref={dropdownRef} data-qa="dropdown" className={`relative ${className}`}>
       <div
         className={classNames(
-          'paragraph-P1-regular flex h-[48px] w-[200px] cursor-pointer items-center justify-between border-[2px] border-primary-20 bg-gray-900 p-[21px] text-white',
+          'paragraph-P1-regular flex h-[48px] w-full cursor-pointer items-center justify-between border-[2px] border-primary-20 bg-gray-900 p-[12px] text-white',
           {
             'rounded-b-[0px] rounded-t-[20px]': isOpen,
             'rounded-full': !isOpen,
           },
         )}
-        onClick={handleClick}
+        onClick={handleToggle}
       >
         <div className="mr-[10px] flex items-center gap-[5px] truncate text-ellipsis text-white">
-          {selectedFile ? checkFileType(selectedFile) : props.placeholder || 'Select a file'}
+          {placeholder}
         </div>
         {isOpen ? <AiOutlineUp /> : <AiOutlineDown />}
       </div>
@@ -64,13 +74,13 @@ const Dropdown = (props: Props) => {
           data-qa="select-options"
           className="absolute z-50 max-h-60 w-full overflow-auto rounded-b-md border-x-[1px] border-b-[1px] border-x-primary-90 border-b-primary-90 bg-shades-white"
         >
-          {props.items.map((file) => (
+          {items.map((item) => (
             <li
-              key={file.name}
-              className="paragraph-P1-regular z-50 mx-1 my-[5px] flex cursor-pointer items-center gap-[5px] truncate text-ellipsis rounded-[5px] px-3 py-2 hover:bg-gray-200"
-              onClick={(e) => handleOptionSelect(file, e)}
+              key={item.id}
+              className="paragraph-P1-regular z-50 mx-1 my-[5px] flex cursor-pointer items-center gap-[5px] rounded-[5px] px-3 py-2 hover:bg-gray-200"
+              onClick={() => handleSelect(item.id)}
             >
-              {checkFileType(file)}
+              <span className="flex-1 truncate text-ellipsis">{item.name}</span>
             </li>
           ))}
         </ul>

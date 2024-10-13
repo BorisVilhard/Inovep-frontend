@@ -1,51 +1,102 @@
-// DataBar.jsx
-import React, { useState } from 'react';
-import Dropdown from '@/app/components/Dropdown/Dropdown';
-import { MdOutlineAttachFile } from 'react-icons/md';
+// DataBar.tsx
+
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { DocumentData } from '@/types/types';
+import useStore from '@/views/auth/api/userReponse';
+import { MdOutlineAttachFile } from 'react-icons/md';
+import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
 import Button from '@/app/components/Button/Button';
 import { FaPlus } from 'react-icons/fa6';
 
-interface Props {
-  getData: (data: DocumentData) => void;
-  isLoading: (loading: boolean) => void;
+interface DataBarProps {
   getFileName: (name: string) => void;
+  isLoading: (loading: boolean) => void;
+  getData: (data: DocumentData) => void;
+  DashboardId?: string;
+  files: { filename: string; content: any }[];
 }
 
-const DataBar = ({ getData, isLoading, getFileName }: Props) => {
+const DataBar: React.FC<DataBarProps> = ({
+  getFileName,
+  isLoading,
+  getData,
+  DashboardId,
+  files,
+}) => {
   const [file, setFile] = useState<File | null>(null);
+  const { id: userId, accessToken } = useStore();
+  const [uploadedFilesItems, setUploadedFilesItems] = useState<DropdownItem[]>([]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!file) return alert('Please select a file!');
+  useEffect(() => {
+    if (files) {
+      const fileItems = files.map((file) => ({
+        id: file.filename, // Use filename as id (ensure filenames are unique)
+        name: file.filename,
+      }));
+      setUploadedFilesItems(fileItems);
+    }
+  }, [files]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+      getFileName(e.target.files[0].name);
+    }
+  };
+
+  const uploadData = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!file) return;
+
+    isLoading(true);
 
     const formData = new FormData();
     formData.append('file', file);
 
+    if (DashboardId) {
+      formData.append('dashboardId', DashboardId);
+    }
+
     try {
-      isLoading(true);
-      getFileName(file.name);
+      const response = await axios.post(
+        `http://localhost:3500/data/users/${userId}/dashboard`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        },
+      );
 
-      const response = await fetch('http://localhost:3500/documentProcess', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        console.error('Network response was not ok', response.statusText);
-        return;
-      }
-
-      const data = await response.json();
-      console.log('Data from backend:', data);
-
-      const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
-
-      getData(parsedData);
+      const { dashboard } = response.data;
+      getData(dashboard);
+      setFile(null); // Reset file input
     } catch (error) {
-      console.error('Error fetching:', error);
+      console.error('Error uploading data:', error);
     } finally {
       isLoading(false);
+    }
+  };
+
+  const handleFileDelete = async (fileIdToDelete: string) => {
+    if (!DashboardId || !userId) return;
+    try {
+      const response = await axios.delete(
+        `http://localhost:3500/data/users/${userId}/dashboard/${DashboardId}/file/${fileIdToDelete}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const { dashboard } = response.data;
+      getData(dashboard);
+      // No need to manually update uploadedFilesItems; it will update via useEffect when `files` prop changes.
+    } catch (error) {
+      console.error('Error deleting file:', error);
     }
   };
 
@@ -53,37 +104,33 @@ const DataBar = ({ getData, isLoading, getFileName }: Props) => {
     <div className="relative flex w-fit flex-col items-center justify-start rounded-2xl bg-gray-900 px-[85px] py-[15px]">
       <form
         className="flex w-[95%] flex-col items-center justify-center gap-[20px]"
-        onSubmit={handleSubmit}
+        onSubmit={uploadData}
       >
         <div className="flex w-[95%] items-center justify-center gap-[20px]">
-          <input
-            id={'file'}
-            style={{ display: 'none' }}
-            type="file"
-            onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-          />
+          <input id="file" style={{ display: 'none' }} type="file" onChange={handleFileChange} />
           <label
             className="flex cursor-pointer items-center justify-center rounded-lg border-none bg-shades-white p-[11px] hover:bg-neutral-20"
-            htmlFor={'file'}
+            htmlFor="file"
           >
             <a className="flex items-center text-[25px]">
               <MdOutlineAttachFile />
             </a>
           </label>
+
+          {/* Dropdown to display and delete uploaded files */}
           <Dropdown
-            name="mediaType"
+            name="uploadedFiles"
             className="w-[250px]"
-            items={[
-              { label: 'Video', value: 'video' },
-              { label: 'Image', value: 'image' },
-            ]}
-            onChange={() => {}}
+            items={uploadedFilesItems}
+            onSelect={handleFileDelete}
+            placeholder="Click to remove file"
           />
+
           <Button type="secondary" htmlType="submit">
-            submit
+            Upload
           </Button>
-          <Button type="secondary" className="gap-2" htmlType="submit">
-            dashboard <FaPlus />
+          <Button type="secondary" className="gap-2" htmlType="button">
+            Dashboard <FaPlus />
           </Button>
         </div>
       </form>

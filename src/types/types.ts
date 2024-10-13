@@ -1,4 +1,4 @@
-// types.ts
+// types/types.ts
 
 export type EntryValue = number | string;
 
@@ -6,13 +6,15 @@ export interface Entry {
   title: string;
   value: EntryValue;
   date: string;
+  fileName: string; // Added fileName to Entry
 }
 
 export interface IndexedEntries {
+  id: string;
   chartType: ChartType;
   data: Entry[];
-  id: number;
   isChartTypeChanged?: boolean;
+  fileName: string;
 }
 
 export type ChartType =
@@ -25,16 +27,17 @@ export type ChartType =
   | 'Bar'
   | 'Pie'
   | 'Line'
-  | 'Radar';
+  | 'Radar'
+  | 'Area';
 
 export interface DashboardCategory {
-  [category: string]: {
-    mainData: IndexedEntries[];
-    combinedData?: number[];
-  };
+  categoryName: string;
+  mainData: IndexedEntries[];
+  combinedData?: number[];
 }
 
 export interface DocumentData {
-  DashboardId: number;
+  _id: string;
   dashboardData: DashboardCategory[];
+  files: { filename: string; content: any }[];
 }
