@@ -38,6 +38,7 @@ export interface DashboardCategory {
 
 export interface DocumentData {
   _id: string;
+  dashboardName: string; // Added dashboardName
   dashboardData: DashboardCategory[];
   files: { filename: string; content: any }[];
 }

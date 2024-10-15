@@ -8,6 +8,7 @@ import { MdOutlineAttachFile } from 'react-icons/md';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
 import Button from '@/app/components/Button/Button';
 import { FaPlus } from 'react-icons/fa6';
+import DashboardNameModal from '@/app/components/testModal/TestModal';
 
 interface DataBarProps {
   getFileName: (name: string) => void;
@@ -15,6 +16,8 @@ interface DataBarProps {
   getData: (data: DocumentData) => void;
   DashboardId?: string;
   files: { filename: string; content: any }[];
+  existingDashboardNames: string[];
+  onCreateDashboard: (dashboard: DocumentData) => void;
 }
 
 const DataBar: React.FC<DataBarProps> = ({
@@ -23,15 +26,19 @@ const DataBar: React.FC<DataBarProps> = ({
   getData,
   DashboardId,
   files,
+  existingDashboardNames,
+  onCreateDashboard,
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const { id: userId, accessToken } = useStore();
   const [uploadedFilesItems, setUploadedFilesItems] = useState<DropdownItem[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState(false);
 
   useEffect(() => {
     if (files) {
       const fileItems = files.map((file) => ({
-        id: file.filename, // Use filename as id (ensure filenames are unique)
+        id: file.filename,
         name: file.filename,
       }));
       setUploadedFilesItems(fileItems);
@@ -45,22 +52,53 @@ const DataBar: React.FC<DataBarProps> = ({
     }
   };
 
-  const uploadData = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!file) return;
+  const handleDashboardCreate = async (dashboardName: string) => {
+    if (!userId) return;
+    try {
+      console.log('Attempting to create dashboard:', dashboardName);
 
+      const response = await axios.post(
+        `http://localhost:3500/data/users/${userId}/dashboard/create`,
+        { dashboardName },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      console.log('Dashboard creation response:', response);
+
+      const { dashboard } = response.data;
+      onCreateDashboard(dashboard);
+
+      if (pendingUpload && file) {
+        // Proceed with the upload
+        await uploadFile(file, dashboard._id);
+      }
+    } catch (error: any) {
+      console.error('Error creating dashboard:', error.response || error.message);
+    } finally {
+      setPendingUpload(false);
+    }
+  };
+
+  const uploadFile = async (file: File, dashboardId: string, dashboardName?: string) => {
     isLoading(true);
 
     const formData = new FormData();
     formData.append('file', file);
 
-    if (DashboardId) {
-      formData.append('dashboardId', DashboardId);
+    if (dashboardId) {
+      formData.append('dashboardId', dashboardId);
+    } else if (dashboardName) {
+      formData.append('dashboardName', dashboardName);
     }
 
     try {
       const response = await axios.post(
-        `http://localhost:3500/data/users/${userId}/dashboard`,
+        `http://localhost:3500/data/users/${userId}/dashboard/upload`,
         formData,
         {
           headers: {
@@ -80,6 +118,20 @@ const DataBar: React.FC<DataBarProps> = ({
     }
   };
 
+  const uploadData = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!file) return;
+
+    if (!DashboardId) {
+      // No dashboardId, prompt for dashboardName
+      setPendingUpload(true);
+      setIsModalOpen(true);
+      return;
+    }
+
+    await uploadFile(file, DashboardId);
+  };
+
   const handleFileDelete = async (fileIdToDelete: string) => {
     if (!DashboardId || !userId) return;
     try {
@@ -94,7 +146,6 @@ const DataBar: React.FC<DataBarProps> = ({
 
       const { dashboard } = response.data;
       getData(dashboard);
-      // No need to manually update uploadedFilesItems; it will update via useEffect when `files` prop changes.
     } catch (error) {
       console.error('Error deleting file:', error);
     }
@@ -102,6 +153,16 @@ const DataBar: React.FC<DataBarProps> = ({
 
   return (
     <div className="relative flex w-fit flex-col items-center justify-start rounded-2xl bg-gray-900 px-[85px] py-[15px]">
+      <DashboardNameModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setPendingUpload(false);
+        }}
+        onSubmit={handleDashboardCreate}
+        existingDashboardNames={existingDashboardNames}
+      />
+
       <form
         className="flex w-[95%] flex-col items-center justify-center gap-[20px]"
         onSubmit={uploadData}
@@ -119,7 +180,6 @@ const DataBar: React.FC<DataBarProps> = ({
 
           {/* Dropdown to display and delete uploaded files */}
           <Dropdown
-            name="uploadedFiles"
             className="w-[250px]"
             items={uploadedFilesItems}
             onSelect={handleFileDelete}
@@ -129,7 +189,15 @@ const DataBar: React.FC<DataBarProps> = ({
           <Button type="secondary" htmlType="submit">
             Upload
           </Button>
-          <Button type="secondary" className="gap-2" htmlType="button">
+          <Button
+            type="secondary"
+            className="gap-2"
+            htmlType="button"
+            onClick={() => {
+              console.log('Dashboard + button clicked');
+              setIsModalOpen(true);
+            }}
+          >
             Dashboard <FaPlus />
           </Button>
         </div>
