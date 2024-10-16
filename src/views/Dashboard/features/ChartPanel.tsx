@@ -82,9 +82,9 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   return (
     <div className="mt-[20px] flex w-[98%] justify-center">
       {isLoading ? (
-        <div className="relative flex w-full items-center justify-center">
+        <div className="absolute left-1/2 top-1/2 flex w-full items-center justify-center">
           <Loading />
-          <div className="absolute top-[47vh] text-[18px]">{fileName} is loading...</div>
+          <div className="text-[18px]">{fileName} is loading...</div>
         </div>
       ) : (
         <div

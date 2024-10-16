@@ -1,9 +1,11 @@
 'use client';
+
 import React, { useRef, useEffect, useState } from 'react';
 import Button from '@/app/components/Button/Button';
 import { MdOutlineAttachFile } from 'react-icons/md';
 import useStore from '@/views/auth/api/userReponse';
 import axios from 'axios';
+import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
 
 const generateId = () => `id-${Date.now()}-${Math.random()}`;
 
@@ -16,6 +18,8 @@ interface Message {
 interface Chat {
   _id: string;
   createdAt: string;
+  dashboardId: string;
+  dashboardName: string;
 }
 
 function DocumentChat() {
@@ -27,6 +31,11 @@ function DocumentChat() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [chats, setChats] = useState<Chat[]>([]); // List of chats
   const [fileContent, setFileContent] = useState<string>(''); // File content of the selected chat
+  const [dashboards, setDashboards] = useState<DropdownItem[]>([]);
+  const [selectedDashboard, setSelectedDashboard] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [dashboardData, setDashboardData] = useState<any>(null);
 
   useEffect(() => {
     const domNode = chatParent.current;
@@ -34,6 +43,36 @@ function DocumentChat() {
       domNode.scrollTop = domNode.scrollHeight;
     }
   }, [messages]);
+
+  // Fetch dashboards on component mount
+  useEffect(() => {
+    const fetchDashboards = async () => {
+      try {
+        const response = await axios.get(`http://localhost:3500/data/users/${userId}/dashboard`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (response && response.status === 200) {
+          const dashboardsData = response.data;
+          const dashboardItems = dashboardsData.map((dashboard: any) => ({
+            id: dashboard._id,
+            name: dashboard.dashboardName,
+          }));
+          setDashboards(dashboardItems);
+        } else if (response.status === 204) {
+          console.log('No dashboards found');
+        } else {
+          console.error('Failed to fetch dashboards:', response?.data);
+        }
+      } catch (error: any) {
+        console.error('Error fetching dashboards:', error);
+      }
+    };
+
+    fetchDashboards();
+  }, [userId, accessToken]);
 
   // Fetch chats on component mount
   useEffect(() => {
@@ -60,6 +99,47 @@ function DocumentChat() {
     fetchChats();
   }, [userId, accessToken]);
 
+  // Handle dashboard selection
+  const handleDashboardSelect = async (dashboardId: string) => {
+    const dashboard = dashboards.find((d) => d.id === dashboardId);
+    if (dashboard) {
+      setSelectedDashboard(dashboard);
+
+      // Fetch the dashboard data
+      try {
+        const response = await axios.get(
+          `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+
+        if (response && response.status === 200) {
+          setDashboardData(response.data.dashboardData);
+          console.log('Dashboard data loaded:', response.data.dashboardData);
+
+          // Check if a chat already exists with this dashboard
+          const existingChat = chats.find((chat) => chat.dashboardId === dashboardId);
+
+          if (existingChat) {
+            // Load the existing chat
+            await handleChatSelection(existingChat._id);
+          } else {
+            // Reset messages and chatId for a new chat
+            setMessages([]);
+            setChatId(null);
+          }
+        } else {
+          console.error('Failed to load dashboard data:', response?.data);
+        }
+      } catch (error: any) {
+        console.error('Error loading dashboard data:', error);
+      }
+    }
+  };
+
   // Handle chat selection
   const handleChatSelection = async (selectedChatId: string) => {
     try {
@@ -77,6 +157,14 @@ function DocumentChat() {
         setChatId(chatData._id);
         setMessages(chatData.messages);
         setFileContent(chatData.fileContent || '');
+        setSelectedDashboard({
+          id: chatData.dashboardId,
+          name: chatData.dashboardName,
+        });
+        // Load dashboard data if necessary
+        if (chatData.dashboardId) {
+          await handleDashboardSelect(chatData.dashboardId);
+        }
         console.log('Chat loaded:', chatData);
       } else {
         console.error('Failed to load chat:', response?.data);
@@ -99,34 +187,17 @@ function DocumentChat() {
     }
   };
 
-  // Convert file to base64
-  const readFileAsBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        if (typeof result === 'string' || result instanceof ArrayBuffer) {
-          const binaryString =
-            result instanceof ArrayBuffer ? String.fromCharCode(...new Uint8Array(result)) : result;
-          const base64 = btoa(binaryString);
-          resolve(base64);
-        } else {
-          reject(new Error('Failed to read file as binary string.'));
-        }
-      };
-      reader.onerror = () => {
-        reject(new Error('Error reading file.'));
-      };
-      reader.readAsArrayBuffer(file);
-    });
-  };
-
   // Handle form submission
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!input.trim() && !selectedFile) {
       console.log('Please enter a message or upload a file.');
+      return;
+    }
+
+    if (!selectedDashboard) {
+      console.log('Please select a dashboard.');
       return;
     }
 
@@ -142,21 +213,10 @@ function DocumentChat() {
 
     let payload: any = {
       messages: [userMessage], // Sending only the new message
+      dashboardId: selectedDashboard.id,
+      dashboardName: selectedDashboard.name,
+      dashboardData: dashboardData,
     };
-
-    if (selectedFile) {
-      try {
-        const fileContentBase64 = await readFileAsBase64(selectedFile);
-        payload.fileContent = fileContentBase64;
-        payload.fileName = selectedFile.name;
-        payload.fileType = selectedFile.type;
-      } catch (error) {
-        console.error('Error reading file:', error);
-      }
-    } else if (fileContent) {
-      // Include existing file content if no new file is selected
-      payload.fileContent = fileContent;
-    }
 
     try {
       // Send message (create chat if it doesn't exist)
@@ -187,7 +247,7 @@ function DocumentChat() {
         if (!chatId && response.data.chatId) {
           setChatId(response.data.chatId);
           // Fetch chats again to update the list
-          setChats((prevChats) => [response.data.chatId, ...prevChats]);
+          setChats((prevChats) => [response.data.chat, ...prevChats]);
         }
       } else {
         console.error('Failed to submit:', response?.data);
@@ -218,6 +278,11 @@ function DocumentChat() {
                 }`}
                 onClick={() => handleChatSelection(chat._id)}
               >
+                {chat.dashboardName ? (
+                  <>
+                    Dashboard: {chat.dashboardName} <br />
+                  </>
+                ) : null}
                 Chat ID: {chat._id.substring(0, 6)}... <br />
                 {new Date(chat.createdAt).toLocaleString()}
               </li>
@@ -229,7 +294,14 @@ function DocumentChat() {
           <section className="flex w-full flex-col items-center justify-start gap-7 rounded-t-2xl bg-gray-900 px-10 py-6">
             <header className="mx-auto flex w-full items-center border-b p-4">
               <h1 className="w-full text-2xl font-bold text-shades-white">Document Report</h1>
-              {selectedFile && <p className="text-shades-white">{selectedFile.name}</p>}
+              {/* Dashboard Dropdown */}
+              <Dropdown
+                items={dashboards}
+                onSelect={handleDashboardSelect}
+                placeholder={selectedDashboard?.name || 'Select Dashboard'}
+                className="w-[250px]"
+                selectedId={selectedDashboard?.id}
+              />
             </header>
             <form onSubmit={handleFormSubmit} className="mx-auto flex w-full items-center gap-5">
               <div>

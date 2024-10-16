@@ -34,7 +34,7 @@ const Navbar = () => {
                 .map((navLink, i) => (
                   <Link href={navLink.url} key={i}>
                     <p
-                      className={`${pathname === navLink.url ? 'font-medium' : ''} relative m-4 text-[1rem] font-bold tracking-[0.105em] text-shades-black`}
+                      className={`${pathname === navLink.url ? 'font-medium' : ''} relative m-4 cursor-pointer text-[1rem] font-bold tracking-[0.105em] text-shades-black`}
                     >
                       {navLink.name}
                       {pathname === navLink.url && (
@@ -63,9 +63,12 @@ const Navbar = () => {
                   {username}
                 </div>
                 <Link href={'/profile'}>
-                  <div className="mx-1 p-2 hover:bg-primary-60">Profile</div>
+                  <div className="mx-1 cursor-pointer p-2 hover:bg-primary-60">Profile</div>
                 </Link>
-                <div onClick={handleLogoutClick} className="mx-1 p-2 hover:bg-primary-60">
+                <div
+                  onClick={handleLogoutClick}
+                  className="mx-1 cursor-pointer p-2 hover:bg-primary-60"
+                >
                   Logout
                 </div>
               </div>
@@ -74,7 +77,7 @@ const Navbar = () => {
         ) : (
           <div className="flex gap-5">
             <Button type="secondary">
-              <Link href={'/auth/login'}> Login</Link>
+              <Link href={'/auth/login'}>Login</Link>
             </Button>
             <Button type="secondary">
               <Link href={'/auth/register'}>Register</Link>

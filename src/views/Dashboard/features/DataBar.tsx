@@ -178,11 +178,10 @@ const DataBar: React.FC<DataBarProps> = ({
             </a>
           </label>
 
-          {/* Dropdown to display and delete uploaded files */}
           <Dropdown
             className="w-[250px]"
             items={uploadedFilesItems}
-            onSelect={handleFileDelete}
+            onDelete={handleFileDelete}
             placeholder="Click to remove file"
           />
 

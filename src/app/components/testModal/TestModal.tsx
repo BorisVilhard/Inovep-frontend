@@ -1,12 +1,16 @@
-// DashboardNameModal.tsx
+// components/DashboardNameModal.tsx
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import * as zod from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 interface DashboardNameModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (dashboardName: string) => void;
+  onSubmit: (name: string) => void;
   existingDashboardNames: string[];
+  initialName?: string;
 }
 
 const DashboardNameModal: React.FC<DashboardNameModalProps> = ({
@@ -14,50 +18,71 @@ const DashboardNameModal: React.FC<DashboardNameModalProps> = ({
   onClose,
   onSubmit,
   existingDashboardNames,
+  initialName,
 }) => {
-  const [dashboardName, setDashboardName] = useState('');
-  const [error, setError] = useState('');
+  const dashboardNameSchema = zod.object({
+    dashboardName: zod
+      .string()
+      .min(1, 'Dashboard name is required')
+      .refine((value) => !existingDashboardNames.includes(value), {
+        message: 'Dashboard name already exists',
+      }),
+  });
 
-  const handleSubmit = () => {
-    if (!dashboardName) {
-      setError('Dashboard name is required');
-      return;
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm({
+    resolver: zodResolver(dashboardNameSchema),
+    defaultValues: { dashboardName: initialName || '' },
+  });
+
+  useEffect(() => {
+    if (initialName) {
+      reset({ dashboardName: initialName });
     }
-    if (existingDashboardNames.includes(dashboardName)) {
-      setError('Dashboard name already exists');
-      return;
-    }
-    onSubmit(dashboardName);
-    setDashboardName('');
-    setError('');
-    onClose();
+  }, [initialName, reset]);
+
+  const onSubmitHandler = (data: { dashboardName: string }) => {
+    onSubmit(data.dashboardName);
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="rounded-lg bg-white p-6">
-        <h2 className="mb-4 text-xl font-semibold">Create New Dashboard</h2>
-        <input
-          type="text"
-          value={dashboardName}
-          onChange={(e) => setDashboardName(e.target.value)}
-          placeholder="Enter dashboard name"
-          className="w-full rounded border px-3 py-2"
-        />
-        {error && <p className="mt-2 text-red-500">{error}</p>}
-        <div className="mt-4 flex justify-end space-x-2">
-          <button onClick={onClose} className="rounded bg-gray-300 px-4 py-2 hover:bg-gray-400">
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-          >
-            Create
-          </button>
-        </div>
+      <div className="w-96 rounded bg-white p-6 shadow-lg">
+        <h2 className="mb-4 text-xl font-semibold">Edit Dashboard Name</h2>
+        <form onSubmit={handleSubmit(onSubmitHandler)}>
+          <div className="mb-4">
+            <label className="block text-gray-700">Dashboard Name</label>
+            <input
+              {...register('dashboardName')}
+              className="w-full rounded border px-3 py-2"
+              placeholder="Dashboard Name"
+            />
+            {errors.dashboardName && (
+              <p className="mt-1 text-sm text-red-500">{errors.dashboardName.message}</p>
+            )}
+          </div>
+          <div className="flex justify-end space-x-4">
+            <button
+              type="button"
+              className="rounded bg-gray-300 px-4 py-2"
+              onClick={() => {
+                reset();
+                onClose();
+              }}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="rounded bg-blue-500 px-4 py-2 text-white">
+              Save
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

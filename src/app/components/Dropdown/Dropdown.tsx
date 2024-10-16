@@ -1,8 +1,8 @@
-// Dropdown.tsx
-
 import React, { useState, useEffect, useRef } from 'react';
 import classNames from 'classnames';
 import { AiOutlineDown, AiOutlineUp } from 'react-icons/ai';
+import EditDropdownItem from './EditDropDownItem';
+import { MdDelete } from 'react-icons/md';
 
 export interface DropdownItem {
   id: string;
@@ -17,6 +17,8 @@ interface Props {
   selectedId?: string;
   type?: 'primary' | 'secondary';
   size?: 'small' | 'large';
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 const Dropdown: React.FC<Props> = ({
@@ -27,11 +29,13 @@ const Dropdown: React.FC<Props> = ({
   selectedId,
   type = 'primary',
   size = 'small',
+  onEdit,
+  onDelete,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedItemName, setSelectedItemName] = useState<string>(placeholder);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
+  const [hoveredItemId, setHoveredItemId] = useState<string>();
   useEffect(() => {
     if (selectedId) {
       const selectedItem = items.find((item) => item.id === selectedId);
@@ -104,15 +108,41 @@ const Dropdown: React.FC<Props> = ({
             },
           )}
         >
-          {items.map((item) => (
-            <li
-              key={item.id}
-              className="paragraph-P1-regular z-50 mx-1 my-[5px] flex cursor-pointer items-center gap-[5px] rounded-[5px] px-3 py-2 hover:bg-gray-200"
-              onClick={() => handleSelect(item.id)}
-            >
-              <span className="flex-1 truncate text-ellipsis">{item.name}</span>
-            </li>
-          ))}
+          {items.map((item) =>
+            onEdit && onDelete && onSelect ? (
+              <EditDropdownItem
+                key={item.id}
+                item={item}
+                isSelected={item.id === selectedId}
+                onSelect={onSelect}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ) : onDelete ? (
+              <li
+                key={item.id}
+                className="paragraph-P1-regular relative z-50 mx-1 my-[5px] flex cursor-pointer items-center gap-[5px] rounded-[5px] px-3 py-2 hover:bg-gray-200"
+                onClick={() => onDelete(item.id)}
+                onMouseEnter={() => setHoveredItemId(item.id)}
+                onMouseLeave={() => setHoveredItemId(undefined)}
+              >
+                {hoveredItemId === item.id && (
+                  <button className="absolute left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 transform text-[20px] text-red-500 hover:text-red-700">
+                    <MdDelete />
+                  </button>
+                )}
+                <span className="flex-1 truncate text-ellipsis">{item.name}</span>
+              </li>
+            ) : (
+              <li
+                key={item.id}
+                className="paragraph-P1-regular z-50 mx-1 my-[5px] flex cursor-pointer items-center gap-[5px] rounded-[5px] px-3 py-2 hover:bg-gray-200"
+                onClick={() => handleSelect(item.id)}
+              >
+                <span className="flex-1 truncate text-ellipsis">{item.name}</span>
+              </li>
+            ),
+          )}
         </ul>
       )}
     </div>

@@ -12,10 +12,10 @@ import useStore from '../auth/api/userReponse';
 import * as zod from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
+import EditDropdown, { CustomDropdownItem } from '@/app/components/Dropdown/EditDropDown';
 import DashboardNameModal from '@/app/components/testModal/TestModal';
 import ConfirmationModal from '@/app/components/testModal/ConfirmationModal';
-import Button from '@/app/components/Button/Button';
+import Dropdown from '@/app/components/Dropdown/Dropdown';
 
 const DashboardFormSchema = zod.object({
   dashboardData: zod.array(
@@ -75,6 +75,11 @@ const Dashboard = () => {
   const [files, setFiles] = useState<{ filename: string; content: any }[]>([]);
   const [dashboards, setDashboards] = useState<DocumentData[]>([]);
 
+  const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false);
+  const [isDeleteDashboardModalOpen, setIsDeleteDashboardModalOpen] = useState(false);
+  const [dashboardToEdit, setDashboardToEdit] = useState<DocumentData | null>(null);
+  const [dashboardToDelete, setDashboardToDelete] = useState<DocumentData | null>(null);
+
   const methods = useForm<DashboardFormValues>({
     resolver: zodResolver(DashboardFormSchema),
     defaultValues: {
@@ -84,7 +89,6 @@ const Dashboard = () => {
 
   const { reset } = methods;
 
-  // Fetch all dashboards
   useEffect(() => {
     if (userId) {
       axios
@@ -99,7 +103,7 @@ const Dashboard = () => {
           if (dashboards && dashboards.length > 0) {
             const firstDashboard = dashboards[0];
             setDashboardData(firstDashboard);
-            setDashboardId(firstDashboard._id); // Use _id instead of DashboardId
+            setDashboardId(firstDashboard._id);
             setCategories(firstDashboard.dashboardData);
             setFiles(firstDashboard.files);
             reset({ dashboardData: firstDashboard.dashboardData });
@@ -111,7 +115,11 @@ const Dashboard = () => {
     }
   }, [userId, accessToken, reset]);
 
-  const existingDashboardNames = dashboards && dashboards.map((d) => d.dashboardName);
+  const existingDashboardNames =
+    dashboards &&
+    dashboards
+      .map((d) => d.dashboardName)
+      .filter((name) => name !== dashboardToEdit?.dashboardName);
 
   const handleNewDashboard = (dashboard: DocumentData) => {
     setDashboardData(dashboard);
@@ -123,7 +131,6 @@ const Dashboard = () => {
     reset({ dashboardData: dashboard.dashboardData });
   };
 
-  // Handle dashboard selection from dropdown
   const handleDashboardSelect = (dashboardId: string) => {
     const selectedDashboard = dashboards.find((d) => d._id === dashboardId);
     if (selectedDashboard) {
@@ -135,15 +142,104 @@ const Dashboard = () => {
     }
   };
 
-  // Prepare dashboard items for dropdown
-  const dashboardItems: DropdownItem[] =
+  const dashboardItems: CustomDropdownItem[] =
     dashboards &&
     dashboards.map((dashboard) => ({
       id: dashboard._id,
       name: dashboard.dashboardName,
     }));
 
-  // Update chart type in state
+  const handleEditClick = (id: string) => {
+    const dashboard = dashboards.find((d) => d._id === id);
+    if (dashboard) {
+      setDashboardToEdit(dashboard);
+      setIsEditDashboardModalOpen(true);
+    }
+  };
+
+  const handleDeleteClick = (id: string) => {
+    const dashboard = dashboards.find((d) => d._id === id);
+    if (dashboard) {
+      setDashboardToDelete(dashboard);
+      setIsDeleteDashboardModalOpen(true);
+    }
+  };
+
+  const handleDashboardNameUpdate = async (newName: string) => {
+    if (!userId || !dashboardToEdit) return;
+    try {
+      const response = await axios.put(
+        `http://localhost:3500/data/users/${userId}/dashboard/${dashboardToEdit._id}`,
+        { dashboardName: newName },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      const { dashboard } = response.data;
+
+      setDashboards((prevDashboards) =>
+        prevDashboards.map((dashboardItem) =>
+          dashboardItem._id === dashboard._id ? dashboard : dashboardItem,
+        ),
+      );
+
+      if (dashboardData && dashboardData._id === dashboard._id) {
+        setDashboardData(dashboard);
+      }
+
+      setIsEditDashboardModalOpen(false);
+      setDashboardToEdit(null);
+    } catch (error: any) {
+      console.error('Error updating dashboard name:', error.response || error.message);
+    }
+  };
+
+  const handleDeleteDashboard = async () => {
+    if (!userId || !dashboardToDelete) return;
+    try {
+      const updatedDashboards = dashboards.filter(
+        (dashboardItem) => dashboardItem._id !== dashboardToDelete._id,
+      );
+
+      await axios.delete(
+        `http://localhost:3500/data/users/${userId}/dashboard/${dashboardToDelete._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      setDashboards(updatedDashboards);
+
+      if (dashboardData && dashboardData._id === dashboardToDelete._id) {
+        if (updatedDashboards.length > 0) {
+          const firstDashboard = updatedDashboards[0];
+          setDashboardData(firstDashboard);
+          setDashboardId(firstDashboard._id);
+          setCategories(firstDashboard.dashboardData);
+          setFiles(firstDashboard.files);
+          reset({ dashboardData: firstDashboard.dashboardData });
+        } else {
+          setDashboardData(null);
+          setDashboardId(undefined);
+          setCategories([]);
+          setFiles([]);
+          reset({ dashboardData: [] });
+        }
+      }
+
+      setIsDeleteDashboardModalOpen(false);
+      setDashboardToDelete(null);
+    } catch (error: any) {
+      console.error('Error deleting dashboard:', error.response || error.message);
+    }
+  };
+
   const updateChartType = useCallback(
     (id: string, newChartType: ChartType) => {
       if (!dashboardData) return;
@@ -204,14 +300,12 @@ const Dashboard = () => {
     }
   }, [aggregateData, combinedData, checkedIds, currentCategory]);
 
-  // Handle new data merging
   const handleNewData = useCallback(
     (newData: DocumentData) => {
-      // Update the dashboard in the dashboards array
       setDashboards((prevDashboards) =>
         prevDashboards.map((dashboard) => (dashboard._id === newData._id ? newData : dashboard)),
       );
-      // Update the current dashboard if it's the one that was updated
+
       if (newData._id === dashboardId) {
         setDashboardData(newData);
         setCategories(newData.dashboardData);
@@ -221,7 +315,6 @@ const Dashboard = () => {
     [dashboardId],
   );
 
-  // Function to delete data by fileName
   const deleteDataByFileName = async (fileNameToDelete: string) => {
     if (!dashboardId || !userId) return;
     try {
@@ -241,126 +334,48 @@ const Dashboard = () => {
     }
   };
 
-  const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false);
-  const [isDeleteDashboardModalOpen, setIsDeleteDashboardModalOpen] = useState(false);
-
-  const handleDashboardNameUpdate = async (newName: string) => {
-    if (!userId || !dashboardId) return;
-    try {
-      const response = await axios.put(
-        `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}`,
-        { dashboardName: newName },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      const { dashboard } = response.data;
-
-      // Update the dashboard in the dashboards array
-      setDashboards((prevDashboards) =>
-        prevDashboards.map((dashboardItem) =>
-          dashboardItem._id === dashboard._id ? dashboard : dashboardItem,
-        ),
-      );
-
-      // Update the current dashboard data
-      setDashboardData(dashboard);
-
-      // Close the modal
-      setIsEditDashboardModalOpen(false);
-    } catch (error: any) {
-      console.error('Error updating dashboard name:', error.response || error.message);
-    }
-  };
-
-  // Function to handle deleting dashboard
-  const handleDeleteDashboard = async () => {
-    if (!userId || !dashboardId) return;
-    try {
-      // Remove the dashboard from the dashboards array
-      const updatedDashboards = dashboards.filter(
-        (dashboardItem) => dashboardItem._id !== dashboardId,
-      );
-
-      await axios.delete(`http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      setDashboards(updatedDashboards);
-
-      if (updatedDashboards.length > 0) {
-        // Set the first remaining dashboard as the current dashboard
-        const firstDashboard = updatedDashboards[0];
-        setDashboardData(firstDashboard);
-        setDashboardId(firstDashboard._id);
-        setCategories(firstDashboard.dashboardData);
-        setFiles(firstDashboard.files);
-        reset({ dashboardData: firstDashboard.dashboardData });
-      } else {
-        // No dashboards left
-        setDashboardData(null);
-        setDashboardId(undefined);
-        setCategories([]);
-        setFiles([]);
-        reset({ dashboardData: [] });
-      }
-
-      // Close the modal
-      setIsDeleteDashboardModalOpen(false);
-    } catch (error: any) {
-      console.error('Error deleting dashboard:', error.response || error.message);
-    }
-  };
-
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center bg-white">
       <ComponentDrawer isOpen={setEditMode} />
       <DashboardNameModal
         isOpen={isEditDashboardModalOpen}
-        onClose={() => setIsEditDashboardModalOpen(false)}
+        onClose={() => {
+          setIsEditDashboardModalOpen(false);
+          setDashboardToEdit(null);
+        }}
         onSubmit={handleDashboardNameUpdate}
-        existingDashboardNames={existingDashboardNames.filter(
-          (name) => name !== dashboardData?.dashboardName,
-        )}
-        initialName={dashboardData?.dashboardName}
+        existingDashboardNames={existingDashboardNames || []}
+        initialName={dashboardToEdit?.dashboardName}
       />
-
-      {/* Delete Dashboard Confirmation Modal */}
       <ConfirmationModal
         isOpen={isDeleteDashboardModalOpen}
-        onClose={() => setIsDeleteDashboardModalOpen(false)}
+        onClose={() => {
+          setIsDeleteDashboardModalOpen(false);
+          setDashboardToDelete(null);
+        }}
         onConfirm={handleDeleteDashboard}
         title="Delete Dashboard"
-        message={`Are you sure you want to delete the dashboard "${dashboardData?.dashboardName}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete the dashboard "${dashboardToDelete?.dashboardName}"? This action cannot be undone.`}
       />
-      <div className="flex items-center gap-4">
-        <Dropdown
-          items={dashboardItems}
-          size="large"
-          type="secondary"
-          onSelect={handleDashboardSelect}
-          placeholder={dashboardData?.dashboardName || 'Select Dashboard'}
-          className="w-[250px]"
-          selectedId={dashboardId}
-        />
-        <Button type="secondary" onClick={() => setIsEditDashboardModalOpen(true)}>
-          Edit
-        </Button>
-        <Button onClick={() => setIsDeleteDashboardModalOpen(true)}>Delete</Button>
-      </div>
+
+      <Dropdown
+        type="secondary"
+        size="large"
+        editList
+        items={dashboardItems}
+        onSelect={handleDashboardSelect}
+        selectedId={dashboardId}
+        onEdit={handleEditClick}
+        onDelete={handleDeleteClick}
+      />
+
       <DataBar
         getFileName={setFileName}
         isLoading={setLoading}
         getData={handleNewData}
         DashboardId={dashboardId}
         files={files}
-        existingDashboardNames={existingDashboardNames}
+        existingDashboardNames={dashboards.map((d) => d.dashboardName)}
         onCreateDashboard={handleNewDashboard}
       />
       {categories && categories.length > 0 ? (
