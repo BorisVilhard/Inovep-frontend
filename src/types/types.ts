@@ -1,12 +1,10 @@
-// types/types.ts
-
 export type EntryValue = number | string;
 
 export interface Entry {
   title: string;
   value: EntryValue;
   date: string;
-  fileName: string; // Added fileName to Entry
+  fileName: string;
 }
 
 export interface IndexedEntries {
@@ -38,7 +36,12 @@ export interface DashboardCategory {
 
 export interface DocumentData {
   _id: string;
-  dashboardName: string; // Added dashboardName
+  dashboardName: string;
   dashboardData: DashboardCategory[];
   files: { filename: string; content: any }[];
+}
+
+export interface CustomDropdownItem {
+  id: string;
+  name: string;
 }

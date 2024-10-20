@@ -1,6 +1,7 @@
 import React from 'react';
 import { MdDelete } from 'react-icons/md';
-interface CustomDropdownItem {
+
+export interface CustomDropdownItem {
   id: string;
   name: string;
 }

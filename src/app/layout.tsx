@@ -2,7 +2,7 @@
 
 import '../styles/globals.css';
 import '../styles/dataFlowAnimation.css';
-import '../styles/particleAnimation.scss';
+import '../styles/loadingAnimation.css';
 import '../styles/fluidupAnimation.css';
 import Button from '@/app/components/Button/Button';
 import Navbar from '@/app/components/Navbar';

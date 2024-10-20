@@ -1,5 +1,3 @@
-// DataBar.tsx
-
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { DocumentData } from '@/types/types';
@@ -55,8 +53,6 @@ const DataBar: React.FC<DataBarProps> = ({
   const handleDashboardCreate = async (dashboardName: string) => {
     if (!userId) return;
     try {
-      console.log('Attempting to create dashboard:', dashboardName);
-
       const response = await axios.post(
         `http://localhost:3500/data/users/${userId}/dashboard/create`,
         { dashboardName },
@@ -68,13 +64,10 @@ const DataBar: React.FC<DataBarProps> = ({
         },
       );
 
-      console.log('Dashboard creation response:', response);
-
       const { dashboard } = response.data;
       onCreateDashboard(dashboard);
 
       if (pendingUpload && file) {
-        // Proceed with the upload
         await uploadFile(file, dashboard._id);
       }
     } catch (error: any) {
@@ -110,7 +103,7 @@ const DataBar: React.FC<DataBarProps> = ({
 
       const { dashboard } = response.data;
       getData(dashboard);
-      setFile(null); // Reset file input
+      setFile(null);
     } catch (error) {
       console.error('Error uploading data:', error);
     } finally {
@@ -123,7 +116,6 @@ const DataBar: React.FC<DataBarProps> = ({
     if (!file) return;
 
     if (!DashboardId) {
-      // No dashboardId, prompt for dashboardName
       setPendingUpload(true);
       setIsModalOpen(true);
       return;
@@ -152,7 +144,7 @@ const DataBar: React.FC<DataBarProps> = ({
   };
 
   return (
-    <div className="relative flex w-fit flex-col items-center justify-start rounded-2xl bg-gray-900 px-[85px] py-[15px]">
+    <div className="relative flex w-fit flex-col items-center justify-start rounded-2xl bg-gray-900 px-[35px] py-[15px]">
       <DashboardNameModal
         isOpen={isModalOpen}
         onClose={() => {
@@ -173,27 +165,26 @@ const DataBar: React.FC<DataBarProps> = ({
             className="flex cursor-pointer items-center justify-center rounded-lg border-none bg-shades-white p-[11px] hover:bg-neutral-20"
             htmlFor="file"
           >
-            <a className="flex items-center text-[25px]">
-              <MdOutlineAttachFile />
-            </a>
+            <MdOutlineAttachFile size={25} />
           </label>
-
+          <p className="w-[170px] truncate text-ellipsis text-shades-white underline">
+            {file?.name ?? 'No File'}
+          </p>
+          <Button type="secondary" htmlType="submit">
+            Upload
+          </Button>
           <Dropdown
             className="w-[250px]"
             items={uploadedFilesItems}
             onDelete={handleFileDelete}
-            placeholder="Click to remove file"
+            placeholder="Select or Remove File"
           />
 
-          <Button type="secondary" htmlType="submit">
-            Upload
-          </Button>
           <Button
             type="secondary"
             className="gap-2"
             htmlType="button"
             onClick={() => {
-              console.log('Dashboard + button clicked');
               setIsModalOpen(true);
             }}
           >
