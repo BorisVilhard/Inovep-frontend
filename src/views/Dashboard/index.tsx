@@ -156,15 +156,11 @@ const Dashboard = () => {
     for (const newCat of newData) {
       const oldCat = oldData.find((cat) => cat.categoryName === newCat.categoryName);
       if (oldCat) {
-        const oldTitles = new Set(
-          oldCat.mainData.map((entry) => entry.data.map((d) => d.title)).flat(),
-        );
-        const newTitles = new Set(
-          newCat.mainData.map((entry) => entry.data.map((d) => d.title)).flat(),
-        );
+        const oldTitles = new Set(oldCat.mainData.map((entry) => entry.id));
+        const newTitles = new Set(newCat.mainData.map((entry) => entry.id));
 
-        const addedTitles = [...newTitles].filter((title) => !oldTitles.has(title));
-        const removedTitles = [...oldTitles].filter((title) => !newTitles.has(title));
+        const addedTitles = [...newTitles].filter((id) => !oldTitles.has(id));
+        const removedTitles = [...oldTitles].filter((id) => !newTitles.has(id));
 
         if (addedTitles.length > 0) {
           differences.addedTitles.push({
@@ -200,6 +196,11 @@ const Dashboard = () => {
           setPendingData(newData);
           setIsDifferenceModalOpen(true);
           setDifferenceData(differences);
+        } else {
+          // No significant differences, update directly
+          setDashboardData(newData);
+          setCategories(newData.dashboardData);
+          setFiles(newData.files);
         }
       } else {
         // No current data, so just set the new data
@@ -432,40 +433,6 @@ const Dashboard = () => {
     }
   }, [aggregateData, combinedData, checkedIds, currentCategory]);
 
-  // const handleNewData = useCallback(
-  //   (newData: DocumentData) => {
-  //     setDashboards((prevDashboards) =>
-  //       prevDashboards.map((dashboard) => (dashboard._id === newData._id ? newData : dashboard)),
-  //     );
-
-  //     if (newData._id === dashboardId) {
-  //       setDashboardData(newData);
-  //       setCategories(newData.dashboardData);
-  //       setFiles(newData.files);
-  //     }
-  //   },
-  //   [dashboardId],
-  // );
-
-  // const deleteDataByFileName = async (fileNameToDelete: string) => {
-  //   if (!dashboardId || !userId) return;
-  //   try {
-  //     const response = await axios.delete(
-  //       `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/file/${fileNameToDelete}`,
-  //       {
-  //         headers: {
-  //           Authorization: `Bearer ${accessToken}`,
-  //         },
-  //       },
-  //     );
-
-  //     const { dashboard } = response.data;
-  //     handleNewData(dashboard);
-  //   } catch (error) {
-  //     console.error('Error deleting data:', error);
-  //   }
-  // };
-
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center bg-white">
       <ComponentDrawer isOpen={setEditMode} />
@@ -514,7 +481,7 @@ const Dashboard = () => {
         getFileName={setFileName}
         isLoading={setLoading}
         getData={handleNewData}
-        DashboardId={dashboardId}
+        dashboardId={dashboardId}
         files={files}
         existingDashboardNames={dashboards.map((d) => d.dashboardName)}
         onCreateDashboard={handleNewDashboard}

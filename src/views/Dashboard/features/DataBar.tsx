@@ -12,7 +12,7 @@ interface DataBarProps {
   getFileName: (name: string) => void;
   isLoading: (loading: boolean) => void;
   getData: (data: DocumentData) => void;
-  DashboardId?: string;
+  dashboardId?: string;
   files: { filename: string; content: any }[];
   existingDashboardNames: string[];
   onCreateDashboard: (dashboard: DocumentData) => void;
@@ -22,7 +22,7 @@ const DataBar: React.FC<DataBarProps> = ({
   getFileName,
   isLoading,
   getData,
-  DashboardId,
+  dashboardId,
   files,
   existingDashboardNames,
   onCreateDashboard,
@@ -77,7 +77,7 @@ const DataBar: React.FC<DataBarProps> = ({
     }
   };
 
-  const uploadFile = async (file: File, dashboardId: string, dashboardName?: string) => {
+  const uploadFile = async (file: File, dashboardId?: string, dashboardName?: string) => {
     isLoading(true);
 
     const formData = new FormData();
@@ -115,20 +115,20 @@ const DataBar: React.FC<DataBarProps> = ({
     e.preventDefault();
     if (!file) return;
 
-    if (!DashboardId) {
+    if (!dashboardId) {
       setPendingUpload(true);
       setIsModalOpen(true);
       return;
     }
 
-    await uploadFile(file, DashboardId);
+    await uploadFile(file, dashboardId);
   };
 
   const handleFileDelete = async (fileIdToDelete: string) => {
-    if (!DashboardId || !userId) return;
+    if (!dashboardId || !userId) return;
     try {
       const response = await axios.delete(
-        `http://localhost:3500/data/users/${userId}/dashboard/${DashboardId}/file/${fileIdToDelete}`,
+        `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/file/${fileIdToDelete}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
