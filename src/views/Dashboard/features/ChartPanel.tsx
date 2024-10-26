@@ -39,9 +39,17 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   const [chartEdit, setChartEdit] = useState<string | undefined>(undefined);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [checkedIds, setCheckedIds] = useState<{ [category: string]: string[] }>({});
-  const { chartType } = useUpdateChartStore();
+
+  // Local state for dashboardData to manage immediate updates
+  const [localDashboardData, setLocalDashboardData] = useState<DashboardCategory[]>(dashboardData);
+
+  const { chartType: globalChartType, setChartData } = useUpdateChartStore();
   const { id: userId, accessToken } = useAuthStore();
-  const { setChartData } = useUpdateChartStore();
+
+  // Synchronize props.dashboardData with localDashboardData
+  useEffect(() => {
+    setLocalDashboardData(dashboardData);
+  }, [dashboardData]);
 
   const handleDragOver = (id: string, e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -92,7 +100,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         await axios.put(
           `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/category/${encodeURIComponent(categoryName)}`,
           {
-            combinedData: combinedDataArray, // Now an array of IndexedEntries
+            combinedData: combinedDataArray,
             summaryData: summaryDataArray,
           },
           {
@@ -119,9 +127,9 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   const handleDrop = useCallback(
     async (event: React.DragEvent<HTMLDivElement>, chartId: string) => {
       event.preventDefault();
-      const chartType = event.dataTransfer.getData('chartType') as ChartType;
+      const newChartType = event.dataTransfer.getData('chartType') as ChartType;
 
-      if (!chartType) {
+      if (!newChartType) {
         console.error('No chartType found in dataTransfer');
         return;
       }
@@ -129,7 +137,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       try {
         await axios.put(
           `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/chart/${chartId}`,
-          { chartType },
+          { chartType: newChartType },
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -137,16 +145,29 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
           },
         );
 
-        // Update the local state or Zustand store
-        setChartData(chartType);
+        // Update the global store (optional if using per-chart state)
+        setChartData(newChartType);
 
-        console.log(`Chart ${chartId} updated to ${chartType}`);
+        // Optimistically update the localDashboardData
+        setLocalDashboardData((prevData) =>
+          prevData.map((category) => ({
+            ...category,
+            mainData: category.mainData.map((item) =>
+              item.id === chartId ? { ...item, chartType: newChartType } : item,
+            ),
+          })),
+        );
+
+        console.log(`Chart ${chartId} updated to ${newChartType}`);
       } catch (error) {
         console.error('Error updating chartType:', error);
         // Optionally, show a notification to the user
+      } finally {
+        setIsDraggingOver(false);
+        setChartEdit(undefined);
       }
     },
-    [dashboardId, userId, accessToken],
+    [dashboardId, userId, accessToken, setChartData],
   );
 
   return (
@@ -166,8 +187,8 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
             },
           )}
         >
-          {dashboardData &&
-            dashboardData.map((document, docIndex) => (
+          {localDashboardData &&
+            localDashboardData.map((document, docIndex) => (
               <div key={docIndex}>
                 <ChartWrapper
                   percentageDifference="15"
@@ -212,7 +233,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               <div
                                 onDrop={(event) => {
                                   handleDrop(event, items.id);
-                                  setIsDraggingOver(false);
                                 }}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDragEnd={() => setIsDraggingOver(false)}
@@ -328,9 +348,9 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 
                           <div className={classNames('flex w-full flex-grow')}>
                             {generateChart(
-                              chartType,
+                              globalChartType, // Use globalChartType if applicable
                               getDataType(
-                                chartType,
+                                globalChartType,
                                 summaryData[document.categoryName] || [],
                                 combinedData[document.categoryName] || [],
                                 [],
