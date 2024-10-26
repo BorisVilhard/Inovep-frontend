@@ -6,11 +6,11 @@ interface EditChartStore {
   setChartData: (chartType: ChartType) => void;
 }
 
-export const useStore = create<EditChartStore>((set) => ({
+export const useUpdateChartStore = create<EditChartStore>((set) => ({
   chartType: 'EntryArea',
   setChartData: (chartType: ChartType) => set({ chartType }),
 }));
 
 export function setChartData(chartType: ChartType) {
-  useStore.getState().setChartData(chartType);
+  useUpdateChartStore.getState().setChartData(chartType);
 }

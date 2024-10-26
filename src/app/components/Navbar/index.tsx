@@ -4,13 +4,13 @@ import Link from 'next/link';
 import Button from '../Button/Button';
 import { usePathname, useRouter } from 'next/navigation';
 import companyLogo from '../../../../public/img/companylogo.png';
-import useStore from '@/views/auth/api/userReponse';
+import useAuthStore from '@/views/auth/api/userReponse';
 
 const Navbar = () => {
   const [isMenuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { username, accessToken, logOut } = useStore();
+  const { username, accessToken, logOut } = useAuthStore();
 
   const handleLogoutClick = () => {
     router.push('/auth/login');

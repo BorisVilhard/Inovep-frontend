@@ -1,3 +1,5 @@
+// ChartPanel.tsx
+
 import React, { useCallback, useEffect, useState } from 'react';
 import classNames from 'classnames';
 import { numberCatcher } from '../../../../utils/numberCatcher';
@@ -6,19 +8,22 @@ import { generateChart } from '../../../../utils/ChartGenerator';
 import ChartOverlay from '../components/ChartOverlay';
 import { getDataType } from '../../../../utils/getDataType';
 import { getEditMode } from '../../../../utils/editModeStore';
-import { useStore } from '../../../../utils/updateChart';
-import { DashboardCategory, Entry, IndexedEntries } from '@/types/types';
+
+import { ChartType, DashboardCategory, Entry, IndexedEntries } from '@/types/types';
+import axios from 'axios';
+import useAuthStore from '@/views/auth/api/userReponse';
+import { useUpdateChartStore } from '../../../../utils/updateChart';
 
 interface ChartPanelProps {
   fileName: string;
   editMode: boolean;
   dashboardData: DashboardCategory[];
   getCheckIds: (checkedIds: { [category: string]: string[] }) => void;
-  handleDrop: (event: React.DragEvent<HTMLDivElement>, id: string) => void;
   getCategoryEdit: (category: string | undefined) => void;
   summaryData: { [category: string]: Entry[] };
   combinedData: { [category: string]: IndexedEntries[] };
   deleteDataByFileName: (fileName: string) => void;
+  dashboardId: string; // Pass dashboardId as a prop
 }
 
 const ChartPanel: React.FC<ChartPanelProps> = ({
@@ -26,16 +31,17 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   dashboardData,
   getCheckIds,
   summaryData,
-  handleDrop,
   combinedData,
   getCategoryEdit,
-  deleteDataByFileName,
+  dashboardId,
 }) => {
   const [categoryEdit, setCategoryEdit] = useState<string | undefined>(undefined);
   const [chartEdit, setChartEdit] = useState<string | undefined>(undefined);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [checkedIds, setCheckedIds] = useState<{ [category: string]: string[] }>({});
-  const { chartType } = useStore();
+  const { chartType } = useUpdateChartStore();
+  const { id: userId, accessToken } = useAuthStore();
+  const { setChartData } = useUpdateChartStore();
 
   const handleDragOver = (id: string, e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -59,20 +65,89 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 
   useEffect(() => {
     getCheckIds(checkedIds);
-  }, [checkedIds]);
+  }, [checkedIds, getCheckIds]);
 
   useEffect(() => {
     getCategoryEdit(categoryEdit);
-  }, [categoryEdit]);
+  }, [categoryEdit, getCategoryEdit]);
 
   useEffect(() => {
-    if (categoryEdit)
+    if (categoryEdit) {
       getEditMode(
         checkedIds[categoryEdit]?.length ?? 0,
         categoryEdit.length > 0,
         Object.values(checkedIds).flat(),
       );
+    }
   }, [editMode, checkedIds, categoryEdit]);
+
+  const updateCategoryDataInBackend = useCallback(
+    async (
+      categoryName: string,
+      combinedDataArray: IndexedEntries[],
+      summaryDataArray: Entry[],
+    ) => {
+      if (!dashboardId || !userId) return;
+      try {
+        await axios.put(
+          `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/category/${encodeURIComponent(categoryName)}`,
+          {
+            combinedData: combinedDataArray, // Now an array of IndexedEntries
+            summaryData: summaryDataArray,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+      } catch (error) {
+        console.error('Error updating category data:', error);
+      }
+    },
+    [dashboardId, userId, accessToken],
+  );
+
+  useEffect(() => {
+    Object.keys(combinedData).forEach((categoryName) => {
+      const combinedDataArray = combinedData[categoryName];
+      const summaryDataArray = summaryData[categoryName] || [];
+      updateCategoryDataInBackend(categoryName, combinedDataArray, summaryDataArray);
+    });
+  }, [combinedData, summaryData, updateCategoryDataInBackend]);
+
+  const handleDrop = useCallback(
+    async (event: React.DragEvent<HTMLDivElement>, chartId: string) => {
+      event.preventDefault();
+      const chartType = event.dataTransfer.getData('chartType') as ChartType;
+
+      if (!chartType) {
+        console.error('No chartType found in dataTransfer');
+        return;
+      }
+
+      try {
+        await axios.put(
+          `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/chart/${chartId}`,
+          { chartType },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+
+        // Update the local state or Zustand store
+        setChartData(chartType);
+
+        console.log(`Chart ${chartId} updated to ${chartType}`);
+      } catch (error) {
+        console.error('Error updating chartType:', error);
+        // Optionally, show a notification to the user
+      }
+    },
+    [dashboardId, userId, accessToken],
+  );
 
   return (
     <div className="mt-[20px] flex w-[98%] justify-center">
@@ -97,7 +172,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                 <ChartWrapper
                   percentageDifference="15"
                   isEditingMode={editMode || isDraggingOver}
-                  key={docIndex}
                   getIsChartCHange={setCategoryEdit}
                   title={numberCatcher(document.categoryName)}
                   className={classNames('relative h-fit w-full space-y-4 bg-white', {
@@ -161,8 +235,8 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               items.chartType,
                               getDataType(
                                 items.chartType,
-                                summaryData[document.categoryName],
-                                combinedData[document.categoryName],
+                                summaryData[document.categoryName] || [],
+                                combinedData[document.categoryName] || [],
                                 items.data,
                               ),
                             )}
@@ -181,7 +255,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                       categoryEdit === document.categoryName &&
                                       typeof item.value === 'number',
                                     'min-w-[70px]':
-                                      categoryEdit !== document.combinedData &&
+                                      categoryEdit !== document.categoryName &&
                                       typeof item.value === 'number',
                                   },
                                 )}
@@ -194,91 +268,78 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                     </div>
                   ))}
 
-                  {(() => {
-                    const combinedCharts = document.mainData.filter(
-                      (items) =>
-                        checkedIds[document.categoryName]?.includes(items.id) &&
-                        items.chartType !== chartType,
-                    );
-
-                    const hasCombinedCharts = combinedCharts.length > 0;
-
-                    if (hasCombinedCharts) {
-                      return (
-                        <div className="flex items-center">
-                          <div className="my-[10px] flex  items-center gap-2">
-                            <div className="flex flex-col">
-                              {combinedCharts.map((items) => (
-                                <h1
-                                  key={items.id}
-                                  className="truncate text-ellipsis text-[17px] font-bold"
-                                >
-                                  {items.data[0]?.title}
-                                </h1>
-                              ))}
-                            </div>
-
-                            <h1 className="text-[47px]">{'{'}</h1>
+                  {/* Render combined charts if any */}
+                  {combinedData[document.categoryName] &&
+                    combinedData[document.categoryName].length > 0 && (
+                      <div className="flex items-center">
+                        <div className="my-[10px] flex items-center gap-2">
+                          <div className="flex flex-col">
+                            {combinedData[document.categoryName].map((items: IndexedEntries) => (
+                              <h1
+                                key={items.id}
+                                className="truncate text-ellipsis text-[17px] font-bold"
+                              >
+                                {items.data[0]?.title}
+                              </h1>
+                            ))}
                           </div>
-                          <div className="relative w-full transition-all duration-300 ease-in-out">
-                            <div className="absolute z-50 flex flex-wrap items-center overflow-x-scroll break-words bg-shades-white bg-opacity-25 backdrop-blur-sm">
-                              {combinedCharts.map((items) => (
-                                <div key={items.id}>
-                                  {categoryEdit === document.categoryName && (
-                                    <div className="m-1 flex h-full w-fit items-center justify-center">
-                                      <input
-                                        type="checkbox"
-                                        className="h-[20px] w-[20px]"
-                                        checked={checkedIds[document.categoryName]?.includes(
-                                          items.id,
-                                        )}
-                                        onChange={() =>
-                                          handleCheck(document.categoryName, items.id)
-                                        }
-                                      />
-                                      <span className="ml-2 truncate text-ellipsis text-[14px] font-bold">
-                                        {items.data[0]?.title}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
 
-                            {(isDraggingOver || categoryEdit === document.categoryName) &&
-                              editMode === true && (
-                                <div
-                                  onDrop={(event) => {
-                                    setIsDraggingOver(false);
-                                  }}
-                                  onDragOver={(e) => e.preventDefault()}
-                                  onDragEnd={() => setIsDraggingOver(false)}
-                                >
-                                  <ChartOverlay>
-                                    {categoryEdit === document.categoryName
-                                      ? 'Combine / Change Chart'
-                                      : 'Change Chart'}
-                                  </ChartOverlay>
-                                </div>
-                              )}
+                          <h1 className="text-[47px]">{'{'}</h1>
+                        </div>
+                        <div className="relative w-full transition-all duration-300 ease-in-out">
+                          <div className="absolute z-50 flex flex-wrap items-center overflow-x-scroll break-words bg-shades-white bg-opacity-25 backdrop-blur-sm">
+                            {combinedData[document.categoryName].map((items: IndexedEntries) => (
+                              <div key={items.id}>
+                                {categoryEdit === document.categoryName && (
+                                  <div className="m-1 flex h-full w-fit items-center justify-center">
+                                    <input
+                                      type="checkbox"
+                                      className="h-[20px] w-[20px]"
+                                      checked={checkedIds[document.categoryName]?.includes(
+                                        items.id,
+                                      )}
+                                      onChange={() => handleCheck(document.categoryName, items.id)}
+                                    />
+                                    <span className="ml-2 truncate text-ellipsis text-[14px] font-bold">
+                                      {items.data[0]?.title}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
 
-                            <div className={classNames('flex w-full flex-grow')}>
-                              {generateChart(
+                          {(isDraggingOver || categoryEdit === document.categoryName) &&
+                            editMode === true && (
+                              <div
+                                onDrop={(event) => {
+                                  setIsDraggingOver(false);
+                                }}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDragEnd={() => setIsDraggingOver(false)}
+                              >
+                                <ChartOverlay>
+                                  {categoryEdit === document.categoryName
+                                    ? 'Combine / Change Chart'
+                                    : 'Change Chart'}
+                                </ChartOverlay>
+                              </div>
+                            )}
+
+                          <div className={classNames('flex w-full flex-grow')}>
+                            {generateChart(
+                              chartType,
+                              getDataType(
                                 chartType,
-                                getDataType(
-                                  chartType,
-                                  summaryData[document.categoryName],
-                                  combinedData[document.categoryName],
-                                  [],
-                                ),
-                              )}
-                            </div>
+                                summaryData[document.categoryName] || [],
+                                combinedData[document.categoryName] || [],
+                                [],
+                              ),
+                            )}
                           </div>
                         </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                      </div>
+                    )}
                 </ChartWrapper>
               </div>
             ))}

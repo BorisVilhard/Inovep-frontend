@@ -43,10 +43,18 @@ export const AccordionItem: React.FC<Props> = ({
     event.dataTransfer.setDragImage(dragCopy, 0, 0);
   };
 
+  const dragEndHandler = () => {
+    if (dragCopy) {
+      document.body.removeChild(dragCopy);
+      dragCopy = null;
+    }
+  };
+
   return (
     <div
       onClick={isAccessible ? () => setChartData(type) : () => {}}
       onDragStart={dragStartHandler}
+      onDragEnd={dragEndHandler}
       draggable={isAccessible && !isChecking}
       className={classNames(
         'relative flex h-[120px] w-[170px] flex-col items-center  justify-between  rounded-md border-2 border-solid border-gray-700  bg-gray-700',

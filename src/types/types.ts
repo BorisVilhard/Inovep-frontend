@@ -31,7 +31,7 @@ export type ChartType =
 export interface DashboardCategory {
   categoryName: string;
   mainData: IndexedEntries[];
-  combinedData?: number[];
+  combinedData?: IndexedEntries[];
 }
 
 export interface DocumentData {

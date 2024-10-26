@@ -25,6 +25,7 @@ import ConfirmationModal from '@/app/components/testModal/ConfirmationModal';
 import Dropdown from '@/app/components/Dropdown/Dropdown';
 import DataDifferenceModal from '@/app/components/testModal/DataDifferenceModal';
 import Loading from '@/app/loading';
+import { useUpdateChartStore } from '../../../utils/updateChart';
 
 // Define validation schema using zod
 const DashboardFormSchema = zod.object({
@@ -85,7 +86,7 @@ const Dashboard = () => {
   const [dashboards, setDashboards] = useState<DocumentData[]>([]);
   const [isDifferenceModalOpen, setIsDifferenceModalOpen] = useState(false); // Track modal state
   const [differenceData, setDifferenceData] = useState<any>(null); // Store differences
-
+  const { setChartData } = useUpdateChartStore();
   const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false);
   const [isDeleteDashboardModalOpen, setIsDeleteDashboardModalOpen] = useState(false);
   const [dashboardToEdit, setDashboardToEdit] = useState<DocumentData | null>(null);
@@ -374,8 +375,10 @@ const Dashboard = () => {
   };
 
   const updateChartType = useCallback(
-    (id: string, newChartType: ChartType) => {
-      if (!dashboardData) return;
+    async (id: string, newChartType: ChartType) => {
+      if (!dashboardData || !userId || !dashboardId) return;
+
+      // Update local state
       setDashboardData((currentData) => {
         if (!currentData) return null;
         const updatedData = { ...currentData };
@@ -389,14 +392,38 @@ const Dashboard = () => {
         });
         return updatedData;
       });
+
+      try {
+        await axios.put(
+          `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/chart/${id}`,
+          { chartType: newChartType },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+      } catch (error) {
+        console.error('Error updating chartType:', error);
+      }
     },
-    [dashboardData],
+    [dashboardData, userId, dashboardId, accessToken],
   );
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>, id: string) => {
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>, chartId: string) => {
     event.preventDefault();
-    const chartType = event.dataTransfer.getData('chartType');
-    updateChartType(id, chartType as ChartType);
+    const newChartType = event.dataTransfer.getData('chartType');
+    setChartData(newChartType as ChartType);
+
+    try {
+      await axios.put(
+        `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/chart/${chartId}`,
+        { chartType: newChartType },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+    } catch (error) {
+      console.error('Error updating chart type:', error);
+    }
   };
 
   const aggregateData = useAggregateData();
@@ -493,6 +520,7 @@ const Dashboard = () => {
         </div>
       ) : categories && categories.length > 0 ? (
         <ChartPanel
+          dashboardId={dashboardId || ''}
           fileName={fileName}
           editMode={editMode}
           dashboardData={categories ?? []}
