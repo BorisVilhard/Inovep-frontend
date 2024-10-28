@@ -32,7 +32,7 @@ const IndexAreaGraph = ({ data }: Props) => {
   }, [] as any[]);
 
   return (
-    <div style={{ width: '100%', height: 150 }}>
+    <div style={{ width: '100%', height: 200 }}>
       <ResponsiveContainer>
         <AreaChart data={combinedData}>
           <defs>

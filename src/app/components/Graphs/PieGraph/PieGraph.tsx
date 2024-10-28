@@ -1,12 +1,12 @@
-import { Entry } from '@/types/types';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { Entry } from '@/types/types';
 
 interface Props {
   data: Entry[];
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+export const COLORS = ['#8884d8', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const RADIAN = Math.PI / 180;
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
@@ -23,7 +23,7 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 
 const PieGraph = (props: Props) => {
   return (
-    <ResponsiveContainer width={'100%'} height={200}>
+    <ResponsiveContainer width={'100%'} height={250}>
       <PieChart>
         <Pie
           data={props.data}
@@ -34,12 +34,13 @@ const PieGraph = (props: Props) => {
           outerRadius={80}
           fill="#8884d8"
           dataKey="value"
+          nameKey="title"
         >
           {props.data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
-        <Legend />
+        <Legend iconType="circle" />
         <Tooltip />
       </PieChart>
     </ResponsiveContainer>

@@ -3,9 +3,10 @@
 import React, { useRef, useEffect, useState } from 'react';
 import Button from '@/app/components/Button/Button';
 import { MdOutlineAttachFile } from 'react-icons/md';
-import useStore from '@/views/auth/api/userReponse';
+
 import axios from 'axios';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
+import useAuthStore from '@/views/auth/api/userReponse';
 
 const generateId = () => `id-${Date.now()}-${Math.random()}`;
 
@@ -24,7 +25,7 @@ interface Chat {
 
 function DocumentChat() {
   const [chatId, setChatId] = useState<string | null>(null); // Current chat ID
-  const { id: userId, accessToken } = useStore(); // Retrieve userId and accessToken from store
+  const { id: userId, accessToken } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([]); // Chat messages
   const [input, setInput] = useState<string>(''); // Current input
   const chatParent = useRef<HTMLUListElement>(null);

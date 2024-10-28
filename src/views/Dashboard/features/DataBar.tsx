@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { DocumentData } from '@/types/types';
-import useStore from '@/views/auth/api/userReponse';
+
 import { MdOutlineAttachFile } from 'react-icons/md';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
 import Button from '@/app/components/Button/Button';
 import { FaPlus } from 'react-icons/fa6';
 import DashboardNameModal from '@/app/components/testModal/TestModal';
+import useAuthStore from '@/views/auth/api/userReponse';
 
 interface DataBarProps {
   getFileName: (name: string) => void;
@@ -28,7 +29,7 @@ const DataBar: React.FC<DataBarProps> = ({
   onCreateDashboard,
 }) => {
   const [file, setFile] = useState<File | null>(null);
-  const { id: userId, accessToken } = useStore();
+  const { id: userId, accessToken } = useAuthStore();
   const [uploadedFilesItems, setUploadedFilesItems] = useState<DropdownItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingUpload, setPendingUpload] = useState(false);

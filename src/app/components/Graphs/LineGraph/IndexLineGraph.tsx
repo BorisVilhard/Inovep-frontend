@@ -1,24 +1,27 @@
 import { IndexedEntries } from '@/types/types';
-import React, { useState } from 'react';
+import React from 'react';
+
 import {
-  LineChart,
-  Line,
-  CartesianGrid,
   XAxis,
   YAxis,
-  Tooltip,
+  CartesianGrid,
+  AreaChart,
+  Area,
   Legend,
+  Tooltip,
   ResponsiveContainer,
+  LineChart,
+  Line,
 } from 'recharts';
 
 type Props = {
   data: IndexedEntries[];
 };
 
-const IndexLineGraph = (props: Props) => {
+const IndexLineGraph = ({ data }: Props) => {
   const colors = ['#8884d8', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
-  const combinedData = props.data.reduce((acc, series) => {
+  const combinedData = data.reduce((acc, series) => {
     series.data.forEach((point, idx) => {
       const existing = acc.find((p) => p.date === point.date);
       if (existing) {
@@ -31,22 +34,31 @@ const IndexLineGraph = (props: Props) => {
   }, [] as any[]);
 
   return (
-    <div style={{ width: '100%', height: 150 }}>
+    <div style={{ width: '100%', height: 200 }}>
       <ResponsiveContainer>
         <LineChart data={combinedData}>
-          <CartesianGrid stroke="#ccc" />
+          <defs>
+            {data.map((series, idx) => (
+              <linearGradient key={idx} id={series.id.toString()} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={colors[idx % colors.length]} stopOpacity={0.8} />
+                <stop offset="95%" stopColor={colors[idx % colors.length]} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" />
           <YAxis />
           <Tooltip />
           <Legend iconType="circle" />
-          {props.data.map((series, idx) => (
+          {data.map((series, idx) => (
             <Line
               key={series.id}
               type="monotone"
-              dataKey={series.data[series.id]?.title}
+              dataKey={series.data[idx]?.title}
               stroke={colors[idx % colors.length]}
               strokeWidth={3}
               fillOpacity={1}
+              fill={`url(#${series.id})`}
             />
           ))}
         </LineChart>

@@ -1,3 +1,5 @@
+// Dashboard.tsx
+
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -62,7 +64,33 @@ const DashboardFormSchema = zod.object({
           fileName: zod.string(),
         }),
       ),
-      combinedData: zod.array(zod.number()).optional(),
+      combinedData: zod.array(zod.any()).optional(),
+      summaryData: zod
+        .array(
+          zod.object({
+            title: zod.string(),
+            value: zod.union([zod.number(), zod.string()]),
+            date: zod.string(),
+            fileName: zod.string(),
+          }),
+        )
+        .optional(),
+      appliedChartType: zod
+        .enum([
+          'EntryArea',
+          'IndexArea',
+          'EntryLine',
+          'IndexLine',
+          'TradingLine',
+          'IndexBar',
+          'Bar',
+          'Pie',
+          'Line',
+          'Radar',
+          'Area',
+        ])
+        .optional(),
+      checkedIds: zod.array(zod.string()).optional(),
     }),
   ),
 });
@@ -79,6 +107,7 @@ const Dashboard = () => {
   const [combinedData, setCombinedData] = useState<{ [category: string]: IndexedEntries[] }>({});
   const [summaryData, setSummaryData] = useState<{ [category: string]: Entry[] }>({});
   const [checkedIds, setCheckedIds] = useState<{ [category: string]: string[] }>({});
+  const [appliedChartTypes, setAppliedChartTypes] = useState<{ [category: string]: ChartType }>({});
   const [currentCategory, setCurrentCategory] = useState<string | undefined>(undefined);
   const [categories, setCategories] = useState<DashboardCategory[]>([]);
   const [dashboardId, setDashboardId] = useState<string | undefined>(undefined);
@@ -374,59 +403,37 @@ const Dashboard = () => {
     }
   };
 
-  const updateChartType = useCallback(
-    async (id: string, newChartType: ChartType) => {
-      if (!dashboardData || !userId || !dashboardId) return;
+  const aggregateData = useAggregateData();
 
-      // Update local state
-      setDashboardData((currentData) => {
-        if (!currentData) return null;
-        const updatedData = { ...currentData };
-        updatedData.dashboardData = updatedData.dashboardData.map((category) => {
-          return {
-            ...category,
-            mainData: category.mainData.map((entry) =>
-              entry.id === id ? { ...entry, chartType: newChartType } : entry,
-            ),
-          };
-        });
-        return updatedData;
+  // Load combinedData, summaryData, appliedChartTypes, and checkedIds from backend data
+  useEffect(() => {
+    if (dashboardData) {
+      const initialCombinedData: { [category: string]: IndexedEntries[] } = {};
+      const initialSummaryData: { [category: string]: Entry[] } = {};
+      const initialAppliedChartTypes: { [category: string]: ChartType } = {};
+      const initialCheckedIds: { [category: string]: string[] } = {};
+
+      dashboardData.dashboardData.forEach((category) => {
+        if (category.combinedData) {
+          initialCombinedData[category.categoryName] = category.combinedData;
+        }
+        if (category.summaryData) {
+          initialSummaryData[category.categoryName] = category.summaryData;
+        }
+        if (category.appliedChartType) {
+          initialAppliedChartTypes[category.categoryName] = category.appliedChartType;
+        }
+        if (category.checkedIds) {
+          initialCheckedIds[category.categoryName] = category.checkedIds;
+        }
       });
 
-      try {
-        await axios.put(
-          `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/chart/${id}`,
-          { chartType: newChartType },
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          },
-        );
-      } catch (error) {
-        console.error('Error updating chartType:', error);
-      }
-    },
-    [dashboardData, userId, dashboardId, accessToken],
-  );
-
-  const handleDrop = async (event: React.DragEvent<HTMLDivElement>, chartId: string) => {
-    event.preventDefault();
-    const newChartType = event.dataTransfer.getData('chartType');
-    setChartData(newChartType as ChartType);
-
-    try {
-      await axios.put(
-        `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/chart/${chartId}`,
-        { chartType: newChartType },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-    } catch (error) {
-      console.error('Error updating chart type:', error);
+      setCombinedData(initialCombinedData);
+      setSummaryData(initialSummaryData);
+      setAppliedChartTypes(initialAppliedChartTypes);
+      setCheckedIds(initialCheckedIds);
     }
-  };
-
-  const aggregateData = useAggregateData();
+  }, [dashboardData]);
 
   useEffect(() => {
     if (currentCategory && checkedIds[currentCategory]?.length > 0) {
@@ -524,11 +531,12 @@ const Dashboard = () => {
           fileName={fileName}
           editMode={editMode}
           dashboardData={categories ?? []}
-          handleDrop={handleDrop}
           getCheckIds={setCheckedIds}
           getCategoryEdit={setCurrentCategory}
           summaryData={summaryData}
           combinedData={combinedData}
+          appliedChartTypes={appliedChartTypes}
+          checkedIds={checkedIds}
           deleteDataByFileName={deleteDataByFileName}
         />
       ) : (
