@@ -21,6 +21,8 @@ interface Chat {
   createdAt: string;
   dashboardId: string;
   dashboardName: string;
+  messages: Message[];
+  fileContent?: string;
 }
 
 function DocumentChat() {
@@ -62,6 +64,14 @@ function DocumentChat() {
             name: dashboard.dashboardName,
           }));
           setDashboards(dashboardItems);
+
+          // Set default selected dashboard to the last one
+          if (dashboardItems.length > 0) {
+            const defaultDashboard = dashboardItems[dashboardItems.length - 1];
+            setSelectedDashboard(defaultDashboard);
+            // Call handleDashboardSelect with the default dashboard id
+            handleDashboardSelect(defaultDashboard.id);
+          }
         } else if (response.status === 204) {
           console.log('No dashboards found');
         } else {
@@ -125,8 +135,28 @@ function DocumentChat() {
           const existingChat = chats.find((chat) => chat.dashboardId === dashboardId);
 
           if (existingChat) {
-            // Load the existing chat
-            await handleChatSelection(existingChat._id);
+            // Load the existing chat data directly
+            try {
+              const chatResponse = await axios.get(
+                `http://localhost:3500/chat/users/${userId}/chats/${existingChat._id}`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                  },
+                },
+              );
+
+              if (chatResponse && chatResponse.status === 200) {
+                const chatData = chatResponse.data;
+                setChatId(chatData._id);
+                setMessages(chatData.messages);
+                setFileContent(chatData.fileContent || '');
+              } else {
+                console.error('Failed to load chat:', chatResponse?.data);
+              }
+            } catch (error: any) {
+              console.error('Error loading chat:', error);
+            }
           } else {
             // Reset messages and chatId for a new chat
             setMessages([]);
@@ -162,10 +192,30 @@ function DocumentChat() {
           id: chatData.dashboardId,
           name: chatData.dashboardName,
         });
-        // Load dashboard data if necessary
+
+        // Fetch the dashboard data directly
         if (chatData.dashboardId) {
-          await handleDashboardSelect(chatData.dashboardId);
+          try {
+            const dashboardResponse = await axios.get(
+              `http://localhost:3500/data/users/${userId}/dashboard/${chatData.dashboardId}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              },
+            );
+
+            if (dashboardResponse && dashboardResponse.status === 200) {
+              setDashboardData(dashboardResponse.data.dashboardData);
+              console.log('Dashboard data loaded:', dashboardResponse.data.dashboardData);
+            } else {
+              console.error('Failed to load dashboard data:', dashboardResponse?.data);
+            }
+          } catch (error: any) {
+            console.error('Error loading dashboard data:', error);
+          }
         }
+
         console.log('Chat loaded:', chatData);
       } else {
         console.error('Failed to load chat:', response?.data);

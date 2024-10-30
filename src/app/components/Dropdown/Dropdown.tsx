@@ -36,14 +36,17 @@ const Dropdown: React.FC<Props> = ({
   const [selectedItemName, setSelectedItemName] = useState<string>(placeholder);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string>();
+
   useEffect(() => {
     if (selectedId) {
       const selectedItem = items.find((item) => item.id === selectedId);
       if (selectedItem) {
         setSelectedItemName(selectedItem.name);
       }
+    } else {
+      setSelectedItemName(placeholder);
     }
-  }, [selectedId, items]);
+  }, [selectedId, items, placeholder]);
 
   const handleToggle = () => {
     setIsOpen(!isOpen);
@@ -70,10 +73,10 @@ const Dropdown: React.FC<Props> = ({
   }, []);
 
   return (
-    <div ref={dropdownRef} data-qa="dropdown" className={`relative  ${className}`}>
+    <div ref={dropdownRef} data-qa="dropdown" className={`relative ${className}`}>
       <div
         className={classNames(
-          'paragraph-P1-regular flex h-[48px] cursor-pointer items-center justify-between border-[2px] ',
+          'paragraph-P1-regular flex h-[48px] cursor-pointer items-center justify-between border-[2px]',
           {
             'rounded-b-[0px] rounded-t-[20px]': isOpen,
             'rounded-full': !isOpen,
@@ -84,7 +87,7 @@ const Dropdown: React.FC<Props> = ({
         onClick={handleToggle}
       >
         <div
-          className={classNames('mr-[10px] flex items-center gap-[5px] truncate text-ellipsis', {
+          className={classNames('mr-[10px] flex items-center gap-[5px] truncate', {
             'text-white': type === 'primary',
             'text-shades-black': type === 'secondary',
             'text-[20px]': size === 'large',
@@ -99,12 +102,10 @@ const Dropdown: React.FC<Props> = ({
         <ul
           data-qa="select-options"
           className={classNames(
-            'absolute z-50 max-h-60 overflow-auto border-x-primary-90 border-b-primary-90  bg-shades-white',
+            'absolute z-50 max-h-60 overflow-auto border-x-primary-90 border-b-primary-90 bg-shades-white',
             {
-              'w-full rounded-b-md border-x-[1px] border-b-[1px] border-x-primary-90 border-b-primary-90':
-                size === 'small',
-              'left-1/2 w-[50vw] -translate-x-1/2 transform rounded border-[1px] border-primary-90':
-                size === 'large',
+              'w-full rounded-b-md border-x-[1px] border-b-[1px]': size === 'small',
+              'left-1/2 w-[50vw] -translate-x-1/2 transform rounded border-[1px]': size === 'large',
             },
           )}
         >
@@ -131,7 +132,7 @@ const Dropdown: React.FC<Props> = ({
                     <MdDelete />
                   </button>
                 )}
-                <span className="flex-1 truncate text-ellipsis">{item.name}</span>
+                <span className="flex-1 truncate">{item.name}</span>
               </li>
             ) : (
               <li
@@ -139,7 +140,7 @@ const Dropdown: React.FC<Props> = ({
                 className="paragraph-P1-regular z-50 mx-1 my-[5px] flex cursor-pointer items-center gap-[5px] rounded-[5px] px-3 py-2 hover:bg-gray-200"
                 onClick={() => handleSelect(item.id)}
               >
-                <span className="flex-1 truncate text-ellipsis">{item.name}</span>
+                <span className="flex-1 truncate">{item.name}</span>
               </li>
             ),
           )}

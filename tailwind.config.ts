@@ -7,25 +7,7 @@ const tailwindConfig: Config = {
       fontFamily: {
         sans: ['Montserrat', 'sans-serif'],
       },
-      keyframes: {
-        rotation: {
-          '0%': { transform: 'rotate(0deg)' },
-          '100%': { transform: 'rotate(360deg)' },
-        },
-        rotationReverse: {
-          '0%': { transform: 'rotate(360deg)' },
-          '100%': { transform: 'rotate(0deg)' },
-        },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-20px)' },
-        },
-      },
-      animation: {
-        'spin-slow': 'rotation 1s linear infinite',
-        'spin-slow-reverse': 'rotationReverse 0.5s linear infinite',
-        float: 'float 6s ease-in-out infinite',
-      },
+      
       borderWidth: {
         '4': '4px',
       },

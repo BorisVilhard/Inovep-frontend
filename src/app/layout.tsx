@@ -1,7 +1,6 @@
 'use client';
 
 import '../styles/globals.css';
-import '../styles/dataFlowAnimation.css';
 import '../styles/loadingAnimation.css';
 import '../styles/fluidupAnimation.css';
 import Button from '@/app/components/Button/Button';

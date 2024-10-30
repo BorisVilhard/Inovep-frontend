@@ -1,4 +1,3 @@
-// Dashboard.tsx
 
 'use client';
 
@@ -6,7 +5,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import DataBar from './features/DataBar';
 import {
   ChartType,
-  CustomDropdownItem,
   DashboardCategory,
   DocumentData,
   Entry,
@@ -304,13 +302,6 @@ const Dashboard = () => {
       reset({ dashboardData: selectedDashboard.dashboardData });
     }
   };
-
-  const dashboardItems: CustomDropdownItem[] =
-    dashboards &&
-    dashboards.map((dashboard) => ({
-      id: dashboard._id,
-      name: dashboard.dashboardName,
-    }));
 
   const handleEditClick = (id: string) => {
     const dashboard = dashboards.find((d) => d._id === id);

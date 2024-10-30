@@ -23,6 +23,15 @@
       }
     ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "src/views/Home/Sections/Services/index.js",
+    "src/views/Home/Sections/Hero/index.js",
+    "src/views/Home/Sections/Contact/index.js",
+    "src/views/Home/Sections/About/index.js"
+  ],
   "exclude": ["node_modules"]
 }
