@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { DocumentData } from '@/types/types';
-
 import { MdOutlineAttachFile } from 'react-icons/md';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
 import Button from '@/app/components/Button/Button';
@@ -145,7 +144,7 @@ const DataBar: React.FC<DataBarProps> = ({
   };
 
   return (
-    <div className="relative flex w-fit flex-col items-center justify-start rounded-2xl bg-gray-900 px-[35px] py-[15px]">
+    <div className="relative hidden w-fit  flex-col items-center justify-start rounded-2xl bg-gray-900 px-[35px] py-[15px] md:flex">
       <DashboardNameModal
         isOpen={isModalOpen}
         onClose={() => {

@@ -1,6 +1,6 @@
 import { Entry } from '@/types/types';
-import React, { FC } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import React, { FC, useEffect, useRef, useState } from 'react';
+import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 const RADIAN = Math.PI / 180;
 
@@ -70,29 +70,50 @@ const Radar: FC<Props> = ({ data }) => {
 
   const needleValue = value <= totalValue ? value : totalValue / 2;
 
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 250, height: 200 });
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (chartContainerRef.current) {
+        setDimensions({
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight,
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
   return (
-    <ResponsiveContainer width={'100%'} height={chartHeight}>
-      <PieChart width={chartWidth} height={chartHeight}>
-        <Pie
-          dataKey="value"
-          startAngle={180}
-          endAngle={0}
-          data={data}
-          cx={cx}
-          cy={cy}
-          innerRadius={iR}
-          outerRadius={oR}
-          fill="#8884d8"
-          stroke="none"
-        >
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip />
-        {needle(needleValue, data, cx, cy, iR, oR, '#d0d000')}
-      </PieChart>
-    </ResponsiveContainer>
+    <div ref={chartContainerRef} style={{ width: '100%', height: '100%', minHeight: '200px' }}>
+      {dimensions.width > 0 && dimensions.height > 0 && (
+        <PieChart data={data} width={dimensions.width} height={dimensions.height}>
+          <Pie
+            dataKey="value"
+            startAngle={180}
+            endAngle={0}
+            data={data}
+            cx={cx}
+            cy={cy}
+            innerRadius={iR}
+            outerRadius={oR}
+            fill="#8884d8"
+            stroke="none"
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          {needle(needleValue, data, cx, cy, iR, oR, '#d0d000')}
+        </PieChart>
+      )}
+    </div>
   );
 };
 

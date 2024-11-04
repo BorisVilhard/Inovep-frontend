@@ -6,6 +6,7 @@ import React, {
   useMemo,
   FC,
   ReactNode,
+  useCallback,
 } from 'react';
 import classNames from 'classnames';
 
@@ -38,24 +39,25 @@ export const Accordion: FC<AccordionProps> & { Item: typeof AccordionItem } = ({
     defaultOpen.reduce((acc, cur) => ({ ...acc, [cur]: true }), {}),
   );
 
-  const handleItemRegister = (key: string) => {
+  const handleItemRegister = useCallback((key: string) => {
     setVisibleItems((prev) => ({ ...prev, [key]: prev[key] ?? false }));
-  };
+  }, []);
 
-  const handleItemChange = (key: string) => {
-    setVisibleItems((prev) => {
-      let newState: VisibleItems = {};
-
-      if (mode === 'multiple') {
-        return { ...prev, [key]: !prev[key] };
-      } else {
-        Object.keys(prev).forEach((k) => {
-          newState[k] = k === key ? !prev[key] : false;
-        });
-        return newState;
-      }
-    });
-  };
+  const handleItemChange = useCallback(
+    (key: string) => {
+      setVisibleItems((prev) => {
+        if (mode === 'multiple') {
+          return { ...prev, [key]: !prev[key] };
+        } else {
+          return Object.keys(prev).reduce((acc, k) => {
+            acc[k] = k === key ? !prev[key] : false;
+            return acc;
+          }, {} as VisibleItems);
+        }
+      });
+    },
+    [mode],
+  );
 
   const contextValue = useMemo(
     () => ({
@@ -68,7 +70,7 @@ export const Accordion: FC<AccordionProps> & { Item: typeof AccordionItem } = ({
 
   return (
     <AccordionContext.Provider value={contextValue}>
-      {items.map((item, index) => (
+      {items.map((item) => (
         <AccordionItem key={item.name} name={item.name}>
           {item.content}
         </AccordionItem>

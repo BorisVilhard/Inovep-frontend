@@ -313,9 +313,9 @@ function DocumentChat() {
   };
 
   return (
-    <main className="bg-background flex h-screen max-h-dvh w-full flex-col items-center justify-center">
+    <main className="bg-background flex h-full max-h-dvh w-full flex-col items-center justify-center">
       <div className="flex w-full  justify-center ">
-        <aside className="w-[25%] overflow-y-auto p-4">
+        <aside className="hidden w-[25%] overflow-y-auto p-4 lg:block">
           <div className=" rounded-t-2xl bg-gray-900 p-6">
             <h2 className="mb-4 text-xl  font-bold text-white">Your Chats</h2>
           </div>
@@ -345,7 +345,6 @@ function DocumentChat() {
           <section className="flex w-full flex-col items-center justify-start gap-7 rounded-t-2xl bg-gray-900 px-10 py-6">
             <header className="mx-auto flex w-full items-center border-b p-4">
               <h1 className="w-full text-2xl font-bold text-shades-white">Document Report</h1>
-              {/* Dashboard Dropdown */}
               <Dropdown
                 items={dashboards}
                 onSelect={handleDashboardSelect}
@@ -355,22 +354,6 @@ function DocumentChat() {
               />
             </header>
             <form onSubmit={handleFormSubmit} className="mx-auto flex w-full items-center gap-5">
-              <div>
-                <input
-                  id="file"
-                  style={{ display: 'none' }}
-                  type="file"
-                  onChange={handleFileChange}
-                />
-                <label
-                  className="flex cursor-pointer items-center justify-center rounded-lg border-none bg-shades-white p-[11px] hover:bg-neutral-20"
-                  htmlFor="file"
-                >
-                  <span className="flex items-center text-[25px]">
-                    <MdOutlineAttachFile />
-                  </span>
-                </label>
-              </div>
               <input
                 name="message"
                 className="min-h-[40px] flex-1"

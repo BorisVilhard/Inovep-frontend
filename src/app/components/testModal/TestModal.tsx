@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import * as zod from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Button from '../Button/Button';
 
 interface DashboardNameModalProps {
   isOpen: boolean;
@@ -53,9 +54,12 @@ const DashboardNameModal: React.FC<DashboardNameModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-96 rounded bg-white p-6 shadow-lg">
-        <h2 className="mb-4 text-xl font-semibold">Edit Dashboard Name</h2>
-        <form onSubmit={handleSubmit(onSubmitHandler)}>
+      <div className="flex h-[40%] w-[40%] flex-col justify-between rounded-[30px] bg-white p-10 shadow-lg ">
+        <h2 className="mb-4 text-2xl font-semibold">{initialName ? 'Edit' : 'Create'} Dashboard</h2>
+        <form
+          className="mt-[30px] flex h-full flex-col justify-between"
+          onSubmit={handleSubmit(onSubmitHandler)}
+        >
           <div className="mb-4">
             <label className="block text-gray-700">Dashboard Name</label>
             <input
@@ -68,8 +72,8 @@ const DashboardNameModal: React.FC<DashboardNameModalProps> = ({
             )}
           </div>
           <div className="flex justify-end space-x-4">
-            <button
-              type="button"
+            <Button
+              htmlType="button"
               className="rounded bg-gray-300 px-4 py-2"
               onClick={() => {
                 reset();
@@ -77,10 +81,10 @@ const DashboardNameModal: React.FC<DashboardNameModalProps> = ({
               }}
             >
               Cancel
-            </button>
-            <button type="submit" className="rounded bg-blue-500 px-4 py-2 text-white">
+            </Button>
+            <Button htmlType="submit" className="rounded bg-blue-500 px-4 py-2 text-white">
               Save
-            </button>
+            </Button>
           </div>
         </form>
       </div>

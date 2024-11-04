@@ -1,5 +1,3 @@
-// ChartPanel.tsx
-
 import React, { useCallback, useEffect, useState } from 'react';
 import classNames from 'classnames';
 import { numberCatcher } from '../../../../utils/numberCatcher';
@@ -8,11 +6,11 @@ import { generateChart } from '../../../../utils/ChartGenerator';
 import ChartOverlay from '../components/ChartOverlay';
 import { getDataType } from '../../../../utils/getDataType';
 import { getEditMode } from '../../../../utils/editModeStore';
-
 import { ChartType, DashboardCategory, Entry, IndexedEntries } from '@/types/types';
 import axios from 'axios';
 import useAuthStore from '@/views/auth/api/userReponse';
 import { useUpdateChartStore } from '../../../../utils/updateChart';
+import Masonry from 'react-masonry-css';
 
 interface ChartPanelProps {
   fileName: string;
@@ -43,13 +41,11 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   const [chartEdit, setChartEdit] = useState<string | undefined>(undefined);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
-  // Local state for dashboardData to manage immediate updates
   const [localDashboardData, setLocalDashboardData] = useState<DashboardCategory[]>(dashboardData);
 
   const { chartType: globalChartType, setChartData } = useUpdateChartStore();
   const { id: userId, accessToken } = useAuthStore();
 
-  // Synchronize props.dashboardData with localDashboardData
   useEffect(() => {
     setLocalDashboardData(dashboardData);
   }, [dashboardData]);
@@ -89,7 +85,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     }
   }, [editMode, checkedIds, categoryEdit]);
 
-  // Update appliedChartTypes when globalChartType changes
   useEffect(() => {
     if (categoryEdit) {
       appliedChartTypes[categoryEdit] = globalChartType;
@@ -103,11 +98,16 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       summaryDataArray: Entry[],
     ) => {
       if (!dashboardId || !userId) return;
+
+      const encodedCategoryName = encodeURIComponent(categoryName.trim());
+
+      const url = `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/category/${encodedCategoryName}`;
+
+      console.log('Attempting to update category data at URL:', url);
+
       try {
         await axios.put(
-          `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/category/${encodeURIComponent(
-            categoryName,
-          )}`,
+          url,
           {
             combinedData: combinedDataArray,
             summaryData: summaryDataArray,
@@ -156,10 +156,8 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
           },
         );
 
-        // Update the global store (optional if using per-chart state)
         setChartData(newChartType);
 
-        // Optimistically update the localDashboardData
         setLocalDashboardData((prevData) =>
           prevData.map((category) => ({
             ...category,
@@ -172,7 +170,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         console.log(`Chart ${chartId} updated to ${newChartType}`);
       } catch (error) {
         console.error('Error updating chartType:', error);
-        // Optionally, show a notification to the user
       } finally {
         setIsDraggingOver(false);
         setChartEdit(undefined);
@@ -181,51 +178,50 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     [dashboardId, userId, accessToken, setChartData],
   );
 
+  const breakpointColumnsObj = {
+    default: 3,
+    1100: 2,
+    700: 1,
+  };
+
   return (
-    <div className="mt-[20px] flex w-[98%] justify-center">
+    <div className="mt-5 flex w-full justify-center">
       <div
-        className={classNames('flex w-[100vw] items-start', {
+        className={classNames('flex w-full items-start', {
           'justify-end': editMode,
           'justify-center': !editMode,
         })}
       >
-        <div
-          className={classNames(
-            'z-20 grid grid-cols-1 gap-5 p-5 transition-all duration-500 ease-in-out md:grid-cols-2 lg:grid-cols-3',
-            {
-              'w-[75vw] border-2 border-dashed border-primary-90': editMode,
-              'w-[90vw] border-2 border-dashed border-transparent': !editMode,
-            },
-          )}
+        <Masonry
+          breakpointCols={breakpointColumnsObj}
+          className={classNames('z-20 flex gap-5 p-5 transition-all duration-500 ease-in-out', {
+            'ml-[10px] mr-[20px] w-[75vw] border-2 border-dashed border-primary-90': editMode,
+            'w-[90vw] border-2 border-dashed border-transparent': !editMode,
+          })}
+          columnClassName="masonry-column flex flex-col"
         >
           {localDashboardData &&
             localDashboardData.map((document, docIndex) => (
-              <div key={docIndex}>
+              <div key={docIndex} className="mb-5 break-inside-avoid">
                 <ChartWrapper
                   percentageDifference="15"
                   isEditingMode={editMode || isDraggingOver}
                   getIsChartCHange={setCategoryEdit}
                   title={numberCatcher(document.categoryName)}
-                  className={classNames('relative h-fit w-full space-y-4 bg-white', {
-                    'min-w-[70px]': editMode,
-                    'min-w-[250px]': !editMode,
-                  })}
+                  className={classNames('relative h-full w-full shrink-0')}
                 >
                   {document.mainData
                     .filter((items) => !checkedIds[document.categoryName]?.includes(items.id))
                     .map((items: IndexedEntries) => (
-                      <div
-                        className="my-[10px] flex w-full items-center justify-between gap-3"
-                        key={items.id}
-                      >
+                      <div className="my-2 flex items-center justify-between gap-3" key={items.id}>
                         {items.data && (
-                          <h1 className="flex flex-col text-[17px] font-bold">
+                          <h1 className="flex flex-col text-lg font-bold">
                             {items.data[0]?.title}:
                           </h1>
                         )}
 
                         {items.data && items.data.length > 1 ? (
-                          <div className="relative transition-all duration-300 ease-in-out">
+                          <div className="relative h-fit w-fit transition-all duration-300 ease-in-out">
                             {editMode === true && categoryEdit === document.categoryName && (
                               <div
                                 onDrop={(event) => handleDrop(event, items.id)}
@@ -234,7 +230,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               >
                                 <input
                                   type="checkbox"
-                                  className="absolute left-[3px] top-[3px] z-50 h-[20px] w-[20px]"
+                                  className="absolute left-1 top-1 z-50 h-5 w-5"
                                   checked={checkedIds[document.categoryName]?.includes(items.id)}
                                   onChange={() => handleCheck(document.categoryName, items.id)}
                                 />
@@ -247,6 +243,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                   onDrop={(event) => {
                                     handleDrop(event, items.id);
                                   }}
+                                  className="absolute z-50 h-full w-full"
                                   onDragOver={(e) => e.preventDefault()}
                                   onDragEnd={() => setIsDraggingOver(false)}
                                 >
@@ -258,11 +255,11 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                 </div>
                               )}
                             <div
-                              onDragOver={(e) => handleDragOver(items.id, e)}
-                              className={classNames('flex h-[160px]', {
-                                'w-[210px]': editMode,
-                                'w-[290px]': !editMode,
+                              className={classNames({
+                                'h-30 w-full': !editMode,
+                                'w-[200px] overflow-hidden': editMode,
                               })}
+                              onDragOver={(e) => handleDragOver(items.id, e)}
                             >
                               {generateChart(
                                 items.chartType,
@@ -293,7 +290,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                     },
                                   )}
                                 >
-                                  <h1 className="text-[20px] text-shades-white">{item.value}</h1>
+                                  <h1 className="text-xl text-shades-white">{item.value}</h1>
                                 </div>
                               ))}
                           </div>
@@ -301,25 +298,24 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                       </div>
                     ))}
 
-                  {/* Render combined charts if any */}
                   {combinedData[document.categoryName] &&
                     combinedData[document.categoryName].length > 0 && (
                       <div className="flex items-center">
-                        <div className="my-[10px] flex items-center gap-2">
+                        <div className="my-2 flex items-center gap-2">
                           <div className="flex flex-col">
                             {combinedData[document.categoryName].map((items: IndexedEntries) => (
                               <h1
                                 key={items.id}
-                                className="truncate text-ellipsis text-[17px] font-bold"
+                                className="truncate text-ellipsis text-lg font-bold"
                               >
                                 {items.data[0]?.title}
                               </h1>
                             ))}
                           </div>
 
-                          <h1 className="text-[47px]">{'{'}</h1>
+                          <h1 className="text-4xl">{'{'}</h1>
                         </div>
-                        <div className="relative w-full transition-all duration-300 ease-in-out">
+                        <div className="relative flex w-full justify-between transition-all duration-300 ease-in-out">
                           <div className="absolute z-50 flex flex-wrap items-center break-words bg-shades-white bg-opacity-25 backdrop-blur-sm">
                             {combinedData[document.categoryName].map((items: IndexedEntries) => (
                               <div key={items.id}>
@@ -327,13 +323,13 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                   <div className="m-1 flex h-full w-fit items-center justify-center">
                                     <input
                                       type="checkbox"
-                                      className="h-[20px] w-[20px]"
+                                      className="h-5 w-5"
                                       checked={checkedIds[document.categoryName]?.includes(
                                         items.id,
                                       )}
                                       onChange={() => handleCheck(document.categoryName, items.id)}
                                     />
-                                    <span className="ml-2 truncate text-ellipsis text-[14px] font-bold">
+                                    <span className="ml-2 truncate text-ellipsis text-sm font-bold">
                                       {items.data[0]?.title}
                                     </span>
                                   </div>
@@ -359,11 +355,16 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               </div>
                             )}
 
-                          <div className={classNames('flex h-fit w-full flex-grow items-center')}>
+                          <div
+                            className={classNames({
+                              'h-30 w-full': !editMode,
+                              'w-[200px] overflow-hidden': editMode,
+                            })}
+                          >
                             {generateChart(
-                              appliedChartTypes[document.categoryName] || 'EntryArea',
+                              appliedChartTypes[document.categoryName] || 'IndexArea',
                               getDataType(
-                                appliedChartTypes[document.categoryName] || 'EntryArea',
+                                appliedChartTypes[document.categoryName] || 'IndexArea',
                                 summaryData[document.categoryName] || [],
                                 combinedData[document.categoryName] || [],
                                 [],
@@ -376,7 +377,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                 </ChartWrapper>
               </div>
             ))}
-        </div>
+        </Masonry>
       </div>
     </div>
   );

@@ -1,5 +1,3 @@
-// DashboardNameModal.tsx
-
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import * as zod from 'zod';
@@ -52,7 +50,6 @@ const DashboardNameModal: React.FC<DashboardNameModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    // Your modal markup here, including:
     <div className="modal">
       <form onSubmit={handleSubmit(onSubmitHandler)}>
         <input

@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import Button from '../Button/Button';
@@ -8,9 +10,14 @@ import useAuthStore from '@/views/auth/api/userReponse';
 
 const Navbar = () => {
   const [isMenuOpen, setMenuOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { username, accessToken, logOut } = useAuthStore();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleLogoutClick = () => {
     router.push('/auth/login');
@@ -21,6 +28,10 @@ const Navbar = () => {
     { name: 'Dashboard', url: '/dashboard', protected: true },
     { name: 'Report', url: '/report', protected: true },
   ];
+
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <div className="relative z-50 mx-auto bg-shades-white px-4 text-shades-white">
@@ -33,14 +44,16 @@ const Navbar = () => {
                 .filter((page) => !page.protected || username)
                 .map((navLink, i) => (
                   <Link href={navLink.url} key={i}>
-                    <p
-                      className={`${pathname === navLink.url ? 'font-medium' : ''} relative m-4 cursor-pointer text-[1rem] font-bold tracking-[0.105em] text-shades-black`}
+                    <div
+                      className={`${
+                        pathname === navLink.url ? 'font-medium' : ''
+                      } relative m-4 cursor-pointer text-[1rem] font-bold tracking-[0.105em] text-shades-black`}
                     >
                       {navLink.name}
                       {pathname === navLink.url && (
                         <div className="absolute -bottom-2 left-1/2 h-[7px] w-[45px] -translate-x-1/2 rounded-[20px] bg-neutral-30" />
                       )}
-                    </p>
+                    </div>
                   </Link>
                 ))}
             </div>
@@ -51,10 +64,10 @@ const Navbar = () => {
           <div className="relative mr-[20px] flex w-fit items-center justify-between p-5">
             <Image
               src={'/img/profile.png'}
-              width={50}
-              height={50}
+              width={45}
+              height={45}
               alt="profile"
-              className="relative z-50 rounded-full"
+              className="relative z-50  rounded-full"
               onClick={() => setMenuOpen(!isMenuOpen)}
             />
             {isMenuOpen && (
