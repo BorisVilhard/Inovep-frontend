@@ -47,11 +47,11 @@ const Navbar = () => {
                     <div
                       className={`${
                         pathname === navLink.url ? 'font-medium' : ''
-                      } relative m-4 cursor-pointer text-[1rem] font-bold tracking-[0.105em] text-shades-black`}
+                      } relative m-4 cursor-pointer text-[1rem]  tracking-[0.105em] text-shades-black`}
                     >
                       {navLink.name}
                       {pathname === navLink.url && (
-                        <div className="absolute -bottom-2 left-1/2 h-[7px] w-[45px] -translate-x-1/2 rounded-[20px] bg-neutral-30" />
+                        <div className="absolute -bottom-2 left-1/2 h-[7px] w-[45px] -translate-x-1/2 rounded-[20px] bg-neutral-30 font-bold" />
                       )}
                     </div>
                   </Link>

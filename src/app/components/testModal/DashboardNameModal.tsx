@@ -54,7 +54,7 @@ const DashboardNameModal: React.FC<DashboardNameModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="flex h-[40%] w-[40%] flex-col justify-between rounded-[30px] bg-white p-10 shadow-lg ">
+      <div className="flex h-[38%] w-[38%] flex-col justify-between rounded-[30px] bg-white p-10 shadow-lg ">
         <h2 className="mb-4 text-2xl font-semibold">{initialName ? 'Edit' : 'Create'} Dashboard</h2>
         <form
           className="mt-[30px] flex h-full flex-col justify-between"

@@ -1,15 +1,7 @@
-
 'use client';
-
 import React, { useCallback, useEffect, useState } from 'react';
 import DataBar from './features/DataBar';
-import {
-  ChartType,
-  DashboardCategory,
-  DocumentData,
-  Entry,
-  IndexedEntries,
-} from '@/types/types';
+import { ChartType, DashboardCategory, DocumentData, Entry, IndexedEntries } from '@/types/types';
 import { useAggregateData } from '../../../utils/aggregateData';
 import ComponentDrawer from './components/ComponentDrawer';
 import ChartPanel from './features/ChartPanel';
@@ -19,15 +11,13 @@ import useStore from '../auth/api/userReponse';
 import * as zod from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-
-import DashboardNameModal from '@/app/components/testModal/TestModal';
+import DashboardNameModal from '@/app/components/testModal/DashboardNameModal';
 import ConfirmationModal from '@/app/components/testModal/ConfirmationModal';
 import Dropdown from '@/app/components/Dropdown/Dropdown';
 import DataDifferenceModal from '@/app/components/testModal/DataDifferenceModal';
 import Loading from '@/app/loading';
 import { useUpdateChartStore } from '../../../utils/updateChart';
 
-// Define validation schema using zod
 const DashboardFormSchema = zod.object({
   dashboardData: zod.array(
     zod.object({
@@ -97,7 +87,6 @@ type DashboardFormValues = zod.infer<typeof DashboardFormSchema>;
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<DocumentData | null>(null);
-  const [pendingData, setPendingData] = useState<DocumentData | null>(null); // Hold the pending data temporarily
   const [isLoading, setLoading] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
   const [editMode, setEditMode] = useState(false);
@@ -111,8 +100,11 @@ const Dashboard = () => {
   const [dashboardId, setDashboardId] = useState<string | undefined>(undefined);
   const [files, setFiles] = useState<{ filename: string; content: any }[]>([]);
   const [dashboards, setDashboards] = useState<DocumentData[]>([]);
-  const [isDifferenceModalOpen, setIsDifferenceModalOpen] = useState(false); // Track modal state
-  const [differenceData, setDifferenceData] = useState<any>(null); // Store differences
+  const [isDifferenceModalOpen, setIsDifferenceModalOpen] = useState(false);
+  const [differenceData, setDifferenceData] = useState<any>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isApplyingPendingData, setIsApplyingPendingData] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); // New state variable
   const { setChartData } = useUpdateChartStore();
   const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false);
   const [isDeleteDashboardModalOpen, setIsDeleteDashboardModalOpen] = useState(false);
@@ -155,7 +147,6 @@ const Dashboard = () => {
     }
   }, [userId, accessToken, reset]);
 
-  // Compare old and new data to find differences
   const compareData = (oldData: DashboardCategory[], newData: DashboardCategory[]) => {
     const differences = {
       addedCategories: [] as DashboardCategory[],
@@ -167,14 +158,12 @@ const Dashboard = () => {
     const oldCategories = new Set(oldData.map((cat) => cat.categoryName));
     const newCategories = new Set(newData.map((cat) => cat.categoryName));
 
-    // Find added categories
     for (const newCat of newData) {
       if (!oldCategories.has(newCat.categoryName)) {
         differences.addedCategories.push(newCat);
       }
     }
 
-    // Find removed categories
     for (const oldCat of oldData) {
       if (!newCategories.has(oldCat.categoryName)) {
         differences.removedCategories.push(oldCat);
@@ -209,51 +198,85 @@ const Dashboard = () => {
     return differences;
   };
 
-  const handleNewData = useCallback(
-    (newData: DocumentData) => {
-      if (dashboardData) {
-        const differences = compareData(dashboardData.dashboardData, newData.dashboardData);
+  const handleNewData = (newData: DocumentData) => {
+    if (isApplyingPendingData) {
+      setIsApplyingPendingData(false);
+      setDashboardData({ ...newData });
+      setCategories([...newData.dashboardData]);
+      setFiles([...newData.files]);
+      reset({ dashboardData: newData.dashboardData });
+      return;
+    }
 
-        if (
-          differences.addedCategories.length > 0 ||
-          differences.removedCategories.length > 0 ||
-          differences.addedTitles.length > 0 ||
-          differences.removedTitles.length > 0
-        ) {
-          // Store pending data but do not apply it yet
-          setPendingData(newData);
-          setIsDifferenceModalOpen(true);
-          setDifferenceData(differences);
-        } else {
-          // No significant differences, update directly
-          setDashboardData(newData);
-          setCategories(newData.dashboardData);
-          setFiles(newData.files);
-        }
+    if (dashboardData) {
+      const differences = compareData(dashboardData.dashboardData, newData.dashboardData);
+
+      if (
+        differences.addedCategories.length > 0 ||
+        differences.removedCategories.length > 0 ||
+        differences.addedTitles.length > 0 ||
+        differences.removedTitles.length > 0
+      ) {
+        setDifferenceData(differences);
+        setIsDifferenceModalOpen(true);
       } else {
-        // No current data, so just set the new data
-        setDashboardData(newData);
-        setCategories(newData.dashboardData);
-        setFiles(newData.files);
+        setDashboardData({ ...newData });
+        setCategories([...newData.dashboardData]);
+        setFiles([...newData.files]);
+        reset({ dashboardData: newData.dashboardData });
       }
-    },
-    [dashboardData],
-  );
+    } else {
+      setDashboardData({ ...newData });
+      setCategories([...newData.dashboardData]);
+      setFiles([...newData.files]);
+      reset({ dashboardData: newData.dashboardData });
+    }
+  };
 
-  // Apply the pending data if the user clicks "OK" in the modal
-  const applyPendingData = () => {
-    if (pendingData) {
-      setDashboardData(pendingData);
-      setCategories(pendingData.dashboardData);
-      setFiles(pendingData.files);
-      setPendingData(null);
+  const handleDataDifferencesDetected = (differences: any, pendingFile: File) => {
+    setDifferenceData(differences);
+    setPendingFile(pendingFile);
+    setIsDifferenceModalOpen(true);
+  };
+
+  const applyPendingData = async () => {
+    if (!pendingFile || isUploading) return;
+
+    setIsUploading(true);
+    setLoading(true);
+    setIsApplyingPendingData(true);
+
+    const formData = new FormData();
+    formData.append('file', pendingFile);
+    formData.append('dashboardId', dashboardId || '');
+
+    try {
+      const response = await axios.post(
+        `http://localhost:3500/data/users/${userId}/dashboard/upload`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        },
+      );
+
+      const { dashboard } = response.data;
+      handleNewData(dashboard);
+    } catch (error) {
+      console.error('Error uploading data:', error);
+    } finally {
+      setIsUploading(false); // Reset the uploading flag
+      setLoading(false);
+      setPendingFile(null);
       setIsDifferenceModalOpen(false); // Close the modal after applying
     }
   };
 
   // Discard the pending data if the user clicks "Cancel" in the modal
   const discardPendingData = () => {
-    setPendingData(null);
+    setPendingFile(null);
     setIsDifferenceModalOpen(false); // Close the modal without applying changes
   };
 
@@ -467,6 +490,7 @@ const Dashboard = () => {
         onClose={discardPendingData}
         differences={differenceData}
         onOk={applyPendingData}
+        isUploading={isUploading}
       />
 
       <DashboardNameModal
@@ -493,10 +517,13 @@ const Dashboard = () => {
       <Dropdown
         type="secondary"
         size="large"
-        items={dashboards.map((dashboard) => ({
-          id: dashboard._id,
-          name: dashboard.dashboardName,
-        }))}
+        items={
+          dashboards &&
+          dashboards.map((dashboard) => ({
+            id: dashboard._id,
+            name: dashboard.dashboardName,
+          }))
+        }
         onSelect={handleDashboardSelect}
         selectedId={dashboardId}
         onEdit={handleEditClick}
@@ -508,8 +535,10 @@ const Dashboard = () => {
         getData={handleNewData}
         dashboardId={dashboardId}
         files={files}
-        existingDashboardNames={dashboards.map((d) => d.dashboardName)}
+        existingDashboardNames={dashboards && dashboards.map((d) => d.dashboardName)}
         onCreateDashboard={handleNewDashboard}
+        existingDashboardData={dashboardData ? dashboardData.dashboardData : []}
+        onDataDifferencesDetected={handleDataDifferencesDetected}
       />
 
       {isLoading ? (

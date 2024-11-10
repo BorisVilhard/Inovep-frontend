@@ -1,5 +1,3 @@
-// src/utils/aggregateData.ts
-
 import { useCallback } from 'react';
 import { Entry, IndexedEntries } from '@/types/types';
 

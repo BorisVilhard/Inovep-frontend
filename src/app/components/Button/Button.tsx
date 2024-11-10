@@ -14,6 +14,7 @@ interface Props {
   htmlType?: 'button' | 'submit' | 'reset';
   onClick?: () => void;
   radius?: 'rounded' | 'squared';
+  form?: string;
 }
 
 const Button = ({
@@ -25,11 +26,13 @@ const Button = ({
   className,
   htmlType = 'button',
   radius = 'rounded',
+  form,
   onClick,
 }: Props) => {
   return (
     <button
       onClick={onClick}
+      form={form}
       type={htmlType}
       className={classNames(
         'flex h-[4vh] cursor-pointer items-center justify-center transition ease-in-out',

@@ -47,7 +47,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   const { id: userId, accessToken } = useAuthStore();
 
   useEffect(() => {
-    setLocalDashboardData(dashboardData);
+    setLocalDashboardData(JSON.parse(JSON.stringify(dashboardData)));
   }, [dashboardData]);
 
   const handleDragOver = (id: string, e: React.DragEvent<HTMLDivElement>) => {

@@ -9,7 +9,7 @@ type AuthState = {
 };
 
 type AuthActions = {
-  setCredentials: (id: string, username: string, email: string, accessToken: string) => void;
+  setCredentials: (id: string, username: string, email: string, accessToken: string | null) => void;
   logOut: () => void;
 };
 

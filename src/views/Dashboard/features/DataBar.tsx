@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { DocumentData } from '@/types/types';
+import { DocumentData, DashboardCategory } from '@/types/types';
 import { MdOutlineAttachFile } from 'react-icons/md';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
 import Button from '@/app/components/Button/Button';
 import { FaPlus } from 'react-icons/fa6';
-import DashboardNameModal from '@/app/components/testModal/TestModal';
+import DashboardNameModal from '@/app/components/testModal/DashboardNameModal';
 import useAuthStore from '@/views/auth/api/userReponse';
 
 interface DataBarProps {
@@ -16,6 +16,8 @@ interface DataBarProps {
   files: { filename: string; content: any }[];
   existingDashboardNames: string[];
   onCreateDashboard: (dashboard: DocumentData) => void;
+  existingDashboardData: DashboardCategory[];
+  onDataDifferencesDetected: (differences: any, pendingFile: File) => void; // New prop
 }
 
 const DataBar: React.FC<DataBarProps> = ({
@@ -26,6 +28,8 @@ const DataBar: React.FC<DataBarProps> = ({
   files,
   existingDashboardNames,
   onCreateDashboard,
+  existingDashboardData,
+  onDataDifferencesDetected, // New prop
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const { id: userId, accessToken } = useAuthStore();
@@ -111,6 +115,59 @@ const DataBar: React.FC<DataBarProps> = ({
     }
   };
 
+  const compareData = (oldData: DashboardCategory[], newData: DashboardCategory[]) => {
+    const differences = {
+      addedCategories: [] as DashboardCategory[],
+      removedCategories: [] as DashboardCategory[],
+      addedTitles: [] as { category: string; titles: string[] }[],
+      removedTitles: [] as { category: string; titles: string[] }[],
+    };
+
+    const oldCategories = new Set(oldData.map((cat) => cat.categoryName));
+    const newCategories = new Set(newData.map((cat) => cat.categoryName));
+
+    // Find added categories
+    for (const newCat of newData) {
+      if (!oldCategories.has(newCat.categoryName)) {
+        differences.addedCategories.push(newCat);
+      }
+    }
+
+    // Find removed categories
+    for (const oldCat of oldData) {
+      if (!newCategories.has(oldCat.categoryName)) {
+        differences.removedCategories.push(oldCat);
+      }
+    }
+
+    for (const newCat of newData) {
+      const oldCat = oldData.find((cat) => cat.categoryName === newCat.categoryName);
+      if (oldCat) {
+        const oldTitles = new Set(oldCat.mainData.map((entry) => entry.id));
+        const newTitles = new Set(newCat.mainData.map((entry) => entry.id));
+
+        const addedTitles = [...newTitles].filter((id) => !oldTitles.has(id));
+        const removedTitles = [...oldTitles].filter((id) => !newTitles.has(id));
+
+        if (addedTitles.length > 0) {
+          differences.addedTitles.push({
+            category: newCat.categoryName,
+            titles: addedTitles,
+          });
+        }
+
+        if (removedTitles.length > 0) {
+          differences.removedTitles.push({
+            category: newCat.categoryName,
+            titles: removedTitles,
+          });
+        }
+      }
+    }
+
+    return differences;
+  };
+
   const uploadData = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!file) return;
@@ -121,7 +178,42 @@ const DataBar: React.FC<DataBarProps> = ({
       return;
     }
 
-    await uploadFile(file, dashboardId);
+    isLoading(true);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await axios.post(
+        `http://localhost:3500/data/users/${userId}/dashboard/processFile`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        },
+      );
+
+      const { dashboardData: newDashboardData } = response.data;
+
+      const differences = compareData(existingDashboardData, newDashboardData);
+
+      if (
+        differences.addedCategories.length > 0 ||
+        differences.removedCategories.length > 0 ||
+        differences.addedTitles.length > 0 ||
+        differences.removedTitles.length > 0
+      ) {
+        onDataDifferencesDetected(differences, file);
+      } else {
+        await uploadFile(file, dashboardId);
+      }
+    } catch (error) {
+      console.error('Error processing file:', error);
+    } finally {
+      isLoading(false);
+    }
   };
 
   const handleFileDelete = async (fileIdToDelete: string) => {
@@ -144,7 +236,7 @@ const DataBar: React.FC<DataBarProps> = ({
   };
 
   return (
-    <div className="relative hidden w-fit  flex-col items-center justify-start rounded-2xl bg-gray-900 px-[35px] py-[15px] md:flex">
+    <div className="relative hidden w-fit flex-col items-center justify-start rounded-2xl bg-gray-900 px-[35px] py-[15px] md:flex">
       <DashboardNameModal
         isOpen={isModalOpen}
         onClose={() => {
