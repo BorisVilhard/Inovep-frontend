@@ -199,38 +199,37 @@ const Dashboard = () => {
   };
 
   const handleNewData = (newData: DocumentData) => {
-    if (isApplyingPendingData) {
-      setIsApplyingPendingData(false);
-      setDashboardData({ ...newData });
-      setCategories([...newData.dashboardData]);
-      setFiles([...newData.files]);
-      reset({ dashboardData: newData.dashboardData });
-      return;
-    }
+    setDashboardData({ ...newData });
+    setCategories([...newData.dashboardData]);
+    setFiles([...newData.files]);
+    setCurrentCategory(newData.dashboardData[0]?.categoryName);
 
-    if (dashboardData) {
-      const differences = compareData(dashboardData.dashboardData, newData.dashboardData);
+    reset({ dashboardData: newData.dashboardData });
 
-      if (
-        differences.addedCategories.length > 0 ||
-        differences.removedCategories.length > 0 ||
-        differences.addedTitles.length > 0 ||
-        differences.removedTitles.length > 0
-      ) {
-        setDifferenceData(differences);
-        setIsDifferenceModalOpen(true);
-      } else {
-        setDashboardData({ ...newData });
-        setCategories([...newData.dashboardData]);
-        setFiles([...newData.files]);
-        reset({ dashboardData: newData.dashboardData });
+    const initialCombinedData: { [key: string]: IndexedEntries[] } = {};
+    const initialSummaryData: { [key: string]: Entry[] } = {};
+    const initialAppliedChartTypes: { [key: string]: ChartType } = {};
+    const initialCheckedIds: { [key: string]: string[] } = {};
+
+    newData.dashboardData.forEach((category) => {
+      if (category.combinedData) {
+        initialCombinedData[category.categoryName] = category.combinedData;
       }
-    } else {
-      setDashboardData({ ...newData });
-      setCategories([...newData.dashboardData]);
-      setFiles([...newData.files]);
-      reset({ dashboardData: newData.dashboardData });
-    }
+      if (category.summaryData) {
+        initialSummaryData[category.categoryName] = category.summaryData;
+      }
+      if (category.appliedChartType) {
+        initialAppliedChartTypes[category.categoryName] = category.appliedChartType;
+      }
+      if (category.checkedIds) {
+        initialCheckedIds[category.categoryName] = category.checkedIds;
+      }
+    });
+
+    setCombinedData(initialCombinedData);
+    setSummaryData(initialSummaryData);
+    setAppliedChartTypes(initialAppliedChartTypes);
+    setCheckedIds(initialCheckedIds);
   };
 
   const handleDataDifferencesDetected = (differences: any, pendingFile: File) => {
