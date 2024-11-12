@@ -1,13 +1,19 @@
 import EntryAreaGraph from '@/app/components/Graphs/AreaGraph/EntryAreaGraph';
-import IndexAreaGraph from '@/app/components/Graphs/AreaGraph/IndexedAreaGraph';
 import BarGraph from '@/app/components/Graphs/BarGraph/BarGraph';
 import IndexLineGraph from '@/app/components/Graphs/LineGraph/IndexLineGraph';
 import TradingLineChart from '@/app/components/Graphs/LineGraph/TradingLineGraph';
 import PieGraph from '@/app/components/Graphs/PieGraph/PieGraph';
 import RadarGraph from '@/app/components/Graphs/PieGraph/Radar';
 import { ChartType, Entry, IndexedEntries } from '@/types/types';
+import { getTitleColors } from './getTitleColors';
 
-export const generateChart = (chartType: ChartType, data: Entry[] | IndexedEntries[]) => {
+type GenerateChartProps = {
+  chartType: ChartType;
+  data: Entry[] | IndexedEntries[];
+  titleColors?: { [title: string]: string };
+};
+
+export const generateChart = ({ chartType, data, titleColors }: GenerateChartProps) => {
   switch (chartType) {
     case 'Bar':
       return <BarGraph type="entry" data={data as Entry[]} />;
@@ -15,16 +21,23 @@ export const generateChart = (chartType: ChartType, data: Entry[] | IndexedEntri
       return <BarGraph type="summary" data={data as Entry[]} />;
     case 'EntryArea':
       return <EntryAreaGraph data={data as Entry[]} />;
-    case 'IndexArea':
-      return <IndexAreaGraph data={data as IndexedEntries[]} />;
     case 'IndexLine':
-      return <IndexLineGraph data={data as IndexedEntries[]} />;
+      if (!titleColors) {
+        titleColors = getTitleColors(data as IndexedEntries[]);
+      }
+      return <IndexLineGraph data={data as IndexedEntries[]} titleColors={titleColors} />;
     case 'TradingLine':
       return <TradingLineChart data={data as Entry[]} />;
     case 'Pie':
-      return <PieGraph data={data as Entry[]} />;
+      if (!titleColors) {
+        titleColors = getTitleColors(data as IndexedEntries[]);
+      }
+      return <PieGraph data={data as Entry[]} titleColors={titleColors} />;
     case 'Radar':
-      return <RadarGraph data={data as Entry[]} />;
+      if (!titleColors) {
+        titleColors = getTitleColors(data as IndexedEntries[]);
+      }
+      return <RadarGraph data={data as Entry[]} titleColors={titleColors} />;
     default:
       return <EntryAreaGraph data={data as Entry[]} />;
   }

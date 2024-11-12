@@ -29,7 +29,7 @@ const DataBar: React.FC<DataBarProps> = ({
   existingDashboardNames,
   onCreateDashboard,
   existingDashboardData,
-  onDataDifferencesDetected, // New prop
+  onDataDifferencesDetected,
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const { id: userId, accessToken } = useAuthStore();
@@ -126,14 +126,12 @@ const DataBar: React.FC<DataBarProps> = ({
     const oldCategories = new Set(oldData.map((cat) => cat.categoryName));
     const newCategories = new Set(newData.map((cat) => cat.categoryName));
 
-    // Find added categories
     for (const newCat of newData) {
       if (!oldCategories.has(newCat.categoryName)) {
         differences.addedCategories.push(newCat);
       }
     }
 
-    // Find removed categories
     for (const oldCat of oldData) {
       if (!newCategories.has(oldCat.categoryName)) {
         differences.removedCategories.push(oldCat);
@@ -236,7 +234,7 @@ const DataBar: React.FC<DataBarProps> = ({
   };
 
   return (
-    <div className="relative hidden w-fit flex-col items-center justify-start rounded-2xl bg-gray-900 px-[35px] py-[15px] md:flex">
+    <div className="relative hidden w-fit flex-col items-center justify-start rounded-2xl bg-gray-900 px-[5px] py-[15px] md:flex">
       <DashboardNameModal
         isOpen={isModalOpen}
         onClose={() => {

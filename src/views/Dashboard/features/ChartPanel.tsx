@@ -11,6 +11,7 @@ import axios from 'axios';
 import useAuthStore from '@/views/auth/api/userReponse';
 import { useUpdateChartStore } from '../../../../utils/updateChart';
 import Masonry from 'react-masonry-css';
+import { getTitleColors } from '../../../../utils/getTitleColors';
 
 interface ChartPanelProps {
   fileName: string;
@@ -215,7 +216,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                     .map((items: IndexedEntries) => (
                       <div className="my-2 flex items-center justify-between gap-3" key={items.id}>
                         {items.data && (
-                          <h1 className="flex flex-col text-lg font-bold">
+                          <h1 className={`flex flex-col text-lg font-bold `}>
                             {items.data[0]?.title}:
                           </h1>
                         )}
@@ -226,7 +227,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               <div
                                 onDrop={(event) => handleDrop(event, items.id)}
                                 onDragOver={(e) => e.preventDefault()}
-                                className="absolute"
+                                className="absolute z-50"
                               >
                                 <input
                                   type="checkbox"
@@ -243,7 +244,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                   onDrop={(event) => {
                                     handleDrop(event, items.id);
                                   }}
-                                  className="absolute z-50 h-full w-full"
+                                  className="absolute z-20 h-full w-full"
                                   onDragOver={(e) => e.preventDefault()}
                                   onDragEnd={() => setIsDraggingOver(false)}
                                 >
@@ -261,15 +262,15 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               })}
                               onDragOver={(e) => handleDragOver(items.id, e)}
                             >
-                              {generateChart(
-                                items.chartType,
-                                getDataType(
+                              {generateChart({
+                                chartType: items.chartType,
+                                data: getDataType(
                                   items.chartType,
                                   summaryData[document.categoryName] || [],
                                   combinedData[document.categoryName] || [],
                                   items.data,
                                 ),
-                              )}
+                              })}
                             </div>
                           </div>
                         ) : (
@@ -306,7 +307,16 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                             {combinedData[document.categoryName].map((items: IndexedEntries) => (
                               <h1
                                 key={items.id}
-                                className="truncate text-ellipsis text-lg font-bold"
+                                className={`truncate text-ellipsis text-lg font-bold text-[${
+                                  getTitleColors(combinedData[document.categoryName])[
+                                    items.data[0]?.title
+                                  ]
+                                }]`}
+                                style={{
+                                  color: getTitleColors(combinedData[document.categoryName])[
+                                    items.data[0]?.title
+                                  ],
+                                }}
                               >
                                 {items.data[0]?.title}
                               </h1>
@@ -319,7 +329,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                           <div className="absolute z-50 flex flex-wrap items-center break-words bg-shades-white bg-opacity-25 backdrop-blur-sm">
                             {combinedData[document.categoryName].map((items: IndexedEntries) => (
                               <div key={items.id}>
-                                {categoryEdit === document.categoryName && (
+                                {editMode && categoryEdit === document.categoryName && (
                                   <div className="m-1 flex h-full w-fit items-center justify-center">
                                     <input
                                       type="checkbox"
@@ -329,7 +339,18 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                       )}
                                       onChange={() => handleCheck(document.categoryName, items.id)}
                                     />
-                                    <span className="ml-2 truncate text-ellipsis text-sm font-bold">
+                                    <span
+                                      className={`ml-2 truncate text-ellipsis text-sm font-bold text-[${
+                                        getTitleColors(combinedData[document.categoryName])[
+                                          items.data[0]?.title
+                                        ]
+                                      }]`}
+                                      style={{
+                                        color: getTitleColors(combinedData[document.categoryName])[
+                                          items.data[0]?.title
+                                        ],
+                                      }}
+                                    >
                                       {items.data[0]?.title}
                                     </span>
                                   </div>
@@ -337,7 +358,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               </div>
                             ))}
                           </div>
-
                           {(isDraggingOver || categoryEdit === document.categoryName) &&
                             editMode === true && (
                               <div
@@ -361,15 +381,17 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               'w-[200px] overflow-hidden': editMode,
                             })}
                           >
-                            {generateChart(
-                              appliedChartTypes[document.categoryName] || 'IndexArea',
-                              getDataType(
-                                appliedChartTypes[document.categoryName] || 'IndexArea',
+                            {generateChart({
+                              chartType: appliedChartTypes[document.categoryName],
+                              data: getDataType(
+                                appliedChartTypes[document.categoryName],
                                 summaryData[document.categoryName] || [],
                                 combinedData[document.categoryName] || [],
                                 [],
                               ),
-                            )}
+                              titleColors: getTitleColors(combinedData[document.categoryName]),
+                            })}
+                            {appliedChartTypes[document.categoryName]}
                           </div>
                         </div>
                       </div>

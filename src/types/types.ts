@@ -59,8 +59,6 @@ export interface CustomDropdownItem {
   name: string;
 }
 
-// src/types/types.ts
-
 export interface Entry {
   title: string;
   value: EntryValue;

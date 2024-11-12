@@ -1,26 +1,16 @@
+import React, { FC, useEffect, useRef, useState } from 'react';
+import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { Entry } from '@/types/types';
-import React, { useEffect, useRef, useState } from 'react';
-import { PieChart, Pie, Cell } from 'recharts';
-export const COLORS = ['#8884d8', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+import { formatDate } from '../../../../../utils/format';
+
 interface Props {
   data: Entry[];
+  titleColors: { [title: string]: string };
 }
-const RADIAN = Math.PI / 180;
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-  return (
-    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  );
-};
-
-const PieGraph = ({ data }: Props) => {
+const PieGraph: FC<Props> = ({ data, titleColors }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 250, height: 200 });
+  const [dimensions, setDimensions] = useState({ width: 120, height: 210 });
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -38,24 +28,36 @@ const PieGraph = ({ data }: Props) => {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
+  const formattedData = data.map((entry) => ({
+    ...entry,
+    date: entry.date ? formatDate(entry.date) : entry.date,
+    value: typeof entry.value === 'number' ? Math.round(entry.value * 100) / 100 : 0,
+  }));
+
+  const chartWidth = dimensions.width || 300;
+  const chartHeight = dimensions.height || 200;
+  const cx = chartWidth / 2;
+  const cy = chartHeight / 2;
+
   return (
     <div ref={chartContainerRef} style={{ width: '100%', height: '100%', minHeight: '200px' }}>
       {dimensions.width > 0 && dimensions.height > 0 && (
-        <PieChart data={data} width={dimensions.width} height={dimensions.height}>
+        <PieChart width={chartWidth} height={chartHeight}>
           <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={renderCustomizedLabel}
+            dataKey="value"
+            nameKey="title"
+            data={formattedData}
+            cx={cx}
+            cy={cy}
             outerRadius={80}
             fill="#8884d8"
-            dataKey="value"
+            label
           >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            {formattedData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={titleColors[entry.title] || '#8884d8'} />
             ))}
           </Pie>
+          <Tooltip />
         </PieChart>
       )}
     </div>

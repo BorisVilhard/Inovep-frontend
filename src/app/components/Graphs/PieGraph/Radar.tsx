@@ -1,6 +1,7 @@
 import { Entry } from '@/types/types';
 import React, { FC, useEffect, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { colors } from '../../../../../utils/getTitleColors';
 
 const RADIAN = Math.PI / 180;
 
@@ -8,7 +9,6 @@ interface Props {
   data: Entry[];
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 const iR = 40;
 const oR = 80;
 const value = 50;
@@ -106,7 +106,7 @@ const Radar: FC<Props> = ({ data }) => {
             stroke="none"
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
             ))}
           </Pie>
           <Tooltip />

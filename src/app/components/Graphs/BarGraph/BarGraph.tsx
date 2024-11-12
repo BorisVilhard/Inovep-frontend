@@ -1,6 +1,8 @@
 import { Entry } from '@/types/types';
 import React, { useEffect, useRef, useState } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Cell } from 'recharts';
+import { formatDate } from '../../../../../utils/format';
+import { colors } from '../../../../../utils/getTitleColors';
 
 interface Props {
   data: Entry[];
@@ -8,7 +10,6 @@ interface Props {
 }
 
 const BarGraph = ({ data, type }: Props) => {
-  const COLORS = ['#8884d8', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 250, height: 200 });
 
@@ -28,10 +29,22 @@ const BarGraph = ({ data, type }: Props) => {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
+  const formattedData =
+    type === 'entry'
+      ? data.map((entry) => ({
+          ...entry,
+          date: formatDate(entry.date),
+          value: typeof entry.value === 'number' ? Math.round(entry.value * 100) / 100 : 0,
+        }))
+      : data.map((entry) => ({
+          ...entry,
+          value: typeof entry.value === 'number' ? Math.round(entry.value * 100) / 100 : 0,
+        }));
+
   return (
     <div ref={chartContainerRef} style={{ width: '100%', height: '100%', minHeight: '200px' }}>
       {dimensions.width > 0 && dimensions.height > 0 && (
-        <BarChart data={data} width={dimensions.width} height={dimensions.height}>
+        <BarChart data={formattedData} width={dimensions.width} height={dimensions.height}>
           <CartesianGrid
             horizontal={true}
             vertical={false}
@@ -46,14 +59,14 @@ const BarGraph = ({ data, type }: Props) => {
           <Tooltip />
           <Bar
             dataKey="value"
-            fill={type === 'entry' ? '#8884d8' : undefined}
+            fill={type === 'entry' ? '#5c4ab2' : undefined}
             name={type === 'summary' ? undefined : 'Value'}
           >
             {type === 'summary' &&
               data.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
+                  fill={colors[index % colors.length]}
                   name={entry.title}
                 />
               ))}
