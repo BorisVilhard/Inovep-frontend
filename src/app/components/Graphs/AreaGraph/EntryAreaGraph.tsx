@@ -1,6 +1,14 @@
 import { Entry } from '@/types/types';
 import React, { useEffect, useRef, useState } from 'react';
-import { XAxis, YAxis, CartesianGrid, AreaChart, Area, Tooltip } from 'recharts';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  AreaChart,
+  Area,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { formatDate } from '../../../../../utils/format';
 
 type Props = {
@@ -8,25 +16,6 @@ type Props = {
 };
 
 const EntryAreaGraph = ({ data }: Props) => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 250, height: 200 });
-
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (chartContainerRef.current) {
-        setDimensions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
-        });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-
   const formattedData = data?.map((entry) => ({
     ...entry,
     date: formatDate(entry.date),
@@ -34,9 +23,9 @@ const EntryAreaGraph = ({ data }: Props) => {
   }));
 
   return (
-    <div ref={chartContainerRef} style={{ width: '100%', height: '100%', minHeight: '180px' }}>
-      {dimensions.width > 0 && dimensions.height > 0 && (
-        <AreaChart data={formattedData} width={dimensions.width} height={dimensions.height}>
+    <div style={{ width: '100%', height: 170 }}>
+      <ResponsiveContainer>
+        <AreaChart data={formattedData}>
           <defs>
             <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
               <stop offset="20%" stopColor="#e6e6ff" stopOpacity={0.8} />
@@ -55,7 +44,7 @@ const EntryAreaGraph = ({ data }: Props) => {
             fill="url(#colorUv)"
           />
         </AreaChart>
-      )}
+      </ResponsiveContainer>
     </div>
   );
 };

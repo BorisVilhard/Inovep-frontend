@@ -215,14 +215,14 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                     .filter((items) => !checkedIds[document.categoryName]?.includes(items.id))
                     .map((items: IndexedEntries) => (
                       <div className="my-2 flex items-center justify-between gap-3" key={items.id}>
-                        {items.data && (
+                        {items.data && items.data.length <= 1 && (
                           <h1 className={`flex flex-col text-lg font-bold `}>
                             {items.data[0]?.title}:
                           </h1>
                         )}
 
                         {items.data && items.data.length > 1 ? (
-                          <div className="relative h-fit w-fit transition-all duration-300 ease-in-out">
+                          <div className="relative h-fit w-full transition-all duration-300 ease-in-out">
                             {editMode === true && categoryEdit === document.categoryName && (
                               <div
                                 onDrop={(event) => handleDrop(event, items.id)}
@@ -262,15 +262,20 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               })}
                               onDragOver={(e) => handleDragOver(items.id, e)}
                             >
-                              {generateChart({
-                                chartType: items.chartType,
-                                data: getDataType(
-                                  items.chartType,
-                                  summaryData[document.categoryName] || [],
-                                  combinedData[document.categoryName] || [],
-                                  items.data,
-                                ),
-                              })}
+                              <h1 className={`mb-1 flex flex-col text-[16px] font-bold `}>
+                                {items.data[0]?.title}:
+                              </h1>
+                              <div className="ml-[5%]">
+                                {generateChart({
+                                  chartType: items.chartType,
+                                  data: getDataType(
+                                    items.chartType,
+                                    summaryData[document.categoryName] || [],
+                                    combinedData[document.categoryName] || [],
+                                    items.data,
+                                  ),
+                                })}
+                              </div>
                             </div>
                           </div>
                         ) : (
@@ -302,29 +307,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                   {combinedData[document.categoryName] &&
                     combinedData[document.categoryName].length > 0 && (
                       <div className="flex items-center">
-                        <div className="my-2 flex items-center gap-2">
-                          <div className="flex flex-col">
-                            {combinedData[document.categoryName].map((items: IndexedEntries) => (
-                              <h1
-                                key={items.id}
-                                className={`truncate text-ellipsis text-lg font-bold text-[${
-                                  getTitleColors(combinedData[document.categoryName])[
-                                    items.data[0]?.title
-                                  ]
-                                }]`}
-                                style={{
-                                  color: getTitleColors(combinedData[document.categoryName])[
-                                    items.data[0]?.title
-                                  ],
-                                }}
-                              >
-                                {items.data[0]?.title}
-                              </h1>
-                            ))}
-                          </div>
-
-                          <h1 className="text-4xl">{'{'}</h1>
-                        </div>
                         <div className="relative flex w-full justify-between transition-all duration-300 ease-in-out">
                           <div className="absolute z-50 flex flex-wrap items-center break-words bg-shades-white bg-opacity-25 backdrop-blur-sm">
                             {combinedData[document.categoryName].map((items: IndexedEntries) => (
@@ -381,17 +363,34 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               'w-[200px] overflow-hidden': editMode,
                             })}
                           >
-                            {generateChart({
-                              chartType: appliedChartTypes[document.categoryName],
-                              data: getDataType(
-                                appliedChartTypes[document.categoryName],
-                                summaryData[document.categoryName] || [],
-                                combinedData[document.categoryName] || [],
-                                [],
-                              ),
-                              titleColors: getTitleColors(combinedData[document.categoryName]),
-                            })}
-                            {appliedChartTypes[document.categoryName]}
+                            <div className="flex gap-2">
+                              {combinedData[document.categoryName].map((items: IndexedEntries) => (
+                                <h1
+                                  key={items.id}
+                                  className={`mb-1  text-[16px] font-bold`}
+                                  style={{
+                                    color: getTitleColors(combinedData[document.categoryName])[
+                                      items.data[0]?.title
+                                    ],
+                                  }}
+                                >
+                                  {items.data[0]?.title}
+                                </h1>
+                              ))}
+                              <h1 className={'text-[16px] font-bold'}>:</h1>
+                            </div>
+                            <div className="ml-[5%]">
+                              {generateChart({
+                                chartType: appliedChartTypes[document.categoryName],
+                                data: getDataType(
+                                  appliedChartTypes[document.categoryName],
+                                  summaryData[document.categoryName] || [],
+                                  combinedData[document.categoryName] || [],
+                                  [],
+                                ),
+                                titleColors: getTitleColors(combinedData[document.categoryName]),
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>

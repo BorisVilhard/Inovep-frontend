@@ -1,6 +1,15 @@
 import { Entry } from '@/types/types';
 import React, { useEffect, useRef, useState } from 'react';
-import { XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Cell } from 'recharts';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  BarChart,
+  Bar,
+  Cell,
+  ResponsiveContainer,
+} from 'recharts';
 import { formatDate } from '../../../../../utils/format';
 import { colors } from '../../../../../utils/getTitleColors';
 
@@ -10,25 +19,6 @@ interface Props {
 }
 
 const BarGraph = ({ data, type }: Props) => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 250, height: 200 });
-
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (chartContainerRef.current) {
-        setDimensions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
-        });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-
   const formattedData =
     type === 'entry'
       ? data.map((entry) => ({
@@ -42,9 +32,9 @@ const BarGraph = ({ data, type }: Props) => {
         }));
 
   return (
-    <div ref={chartContainerRef} style={{ width: '100%', height: '100%', minHeight: '200px' }}>
-      {dimensions.width > 0 && dimensions.height > 0 && (
-        <BarChart data={formattedData} width={dimensions.width} height={dimensions.height}>
+    <div style={{ width: '100%', height: 170 }}>
+      <ResponsiveContainer>
+        <BarChart data={formattedData}>
           <CartesianGrid
             horizontal={true}
             vertical={false}
@@ -59,7 +49,7 @@ const BarGraph = ({ data, type }: Props) => {
           <Tooltip />
           <Bar
             dataKey="value"
-            fill={type === 'entry' ? '#5c4ab2' : undefined}
+            fill={type === 'entry' ? '#4e79a7' : undefined}
             name={type === 'summary' ? undefined : 'Value'}
           >
             {type === 'summary' &&
@@ -72,7 +62,7 @@ const BarGraph = ({ data, type }: Props) => {
               ))}
           </Bar>
         </BarChart>
-      )}
+      </ResponsiveContainer>
     </div>
   );
 };

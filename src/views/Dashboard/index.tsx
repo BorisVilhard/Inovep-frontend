@@ -418,7 +418,6 @@ const Dashboard = () => {
 
   const aggregateData = useAggregateData();
 
-  // Load combinedData, summaryData, appliedChartTypes, and checkedIds from backend data
   useEffect(() => {
     if (dashboardData) {
       const initialCombinedData: { [category: string]: IndexedEntries[] } = {};

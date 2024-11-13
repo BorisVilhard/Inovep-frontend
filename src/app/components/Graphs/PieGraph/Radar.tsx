@@ -9,9 +9,8 @@ interface Props {
   data: Entry[];
 }
 
-const iR = 40;
-const oR = 80;
-const value = 50;
+const iR = 80;
+const oR = 160;
 
 const getNumericValue = (value: string | number): number => {
   const numericValue = typeof value === 'string' ? Number(value) : value;
@@ -19,7 +18,6 @@ const getNumericValue = (value: string | number): number => {
 };
 
 const needle = (
-  value: number,
   data: Entry[],
   cx: number,
   cy: number,
@@ -32,11 +30,22 @@ const needle = (
     total += getNumericValue(v.value);
   });
 
-  const percentage = value / total;
-  const ang = 180 * percentage;
+  let cumulativeValue = 0;
+  let targetAngle = 0;
+
+  data.forEach((entry) => {
+    const value = getNumericValue(entry.value);
+    cumulativeValue += value;
+    const percentage = cumulativeValue / total;
+    targetAngle = 180 * percentage;
+  });
+
+  // Cap the angle to a maximum of 180 degrees
+  targetAngle = Math.min(targetAngle, 180);
+
   const length = (iR + 2 * oR) / 3;
-  const sin = Math.sin(RADIAN * ang);
-  const cos = Math.cos(RADIAN * ang);
+  const sin = Math.sin(RADIAN * targetAngle);
+  const cos = Math.cos(RADIAN * targetAngle);
   const r = 5;
   const x0 = cx;
   const y0 = cy;
@@ -61,25 +70,15 @@ const needle = (
 };
 
 const Radar: FC<Props> = ({ data }) => {
-  const chartWidth = 200;
-  const chartHeight = 100;
-  const cx = chartWidth / 2;
-  const cy = chartHeight;
-
-  const totalValue = data.reduce((sum, entry) => sum + getNumericValue(entry.value), 0);
-
-  const needleValue = value <= totalValue ? value : totalValue / 2;
-
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 250, height: 200 });
+  const [dimensions, setDimensions] = useState({ width: 500, height: 250 });
 
   useEffect(() => {
     const updateDimensions = () => {
       if (chartContainerRef.current) {
-        setDimensions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
-        });
+        const width = chartContainerRef.current.clientWidth;
+        const height = width / 2;
+        setDimensions({ width, height });
       }
     };
 
@@ -89,10 +88,13 @@ const Radar: FC<Props> = ({ data }) => {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
+  const cx = dimensions.width / 2;
+  const cy = dimensions.height - 20;
+
   return (
-    <div ref={chartContainerRef} style={{ width: '100%', height: '100%', minHeight: '200px' }}>
+    <div ref={chartContainerRef} style={{ width: '100%', height: 'auto', minHeight: '200px' }}>
       {dimensions.width > 0 && dimensions.height > 0 && (
-        <PieChart data={data} width={dimensions.width} height={dimensions.height}>
+        <PieChart width={dimensions.width} height={dimensions.height}>
           <Pie
             dataKey="value"
             startAngle={180}
@@ -110,7 +112,7 @@ const Radar: FC<Props> = ({ data }) => {
             ))}
           </Pie>
           <Tooltip />
-          {needle(needleValue, data, cx, cy, iR, oR, '#d0d000')}
+          {needle(data, cx, cy, iR, oR, '#d0d000')}
         </PieChart>
       )}
     </div>
