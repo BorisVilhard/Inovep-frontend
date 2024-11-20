@@ -1,5 +1,5 @@
 import { Entry } from '@/types/types';
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import {
   XAxis,
   YAxis,
@@ -26,10 +26,19 @@ const BarGraph = ({ data, type }: Props) => {
           date: formatDate(entry.date),
           value: typeof entry.value === 'number' ? Math.round(entry.value * 100) / 100 : 0,
         }))
-      : data.map((entry) => ({
-          ...entry,
-          value: typeof entry.value === 'number' ? Math.round(entry.value * 100) / 100 : 0,
-        }));
+      : Object.values(
+          data.reduce((acc: Record<string, { title: string; value: number }>, entry) => {
+            const title = entry.title;
+            const value = typeof entry.value === 'number' ? entry.value : 0;
+
+            if (!acc[title]) {
+              acc[title] = { title, value: 0 };
+            }
+            acc[title].value += value;
+
+            return acc;
+          }, {}),
+        );
 
   return (
     <div style={{ width: '100%', height: 170 }}>
@@ -53,7 +62,7 @@ const BarGraph = ({ data, type }: Props) => {
             name={type === 'summary' ? undefined : 'Value'}
           >
             {type === 'summary' &&
-              data.map((entry, index) => (
+              formattedData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={colors[index % colors.length]}

@@ -368,40 +368,42 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                     combinedData[document.categoryName].map((combinedChart: CombinedChart) => (
                       <div key={combinedChart.id} className="mb-4 flex items-center">
                         <div className="relative flex w-full justify-between transition-all duration-300 ease-in-out">
-                          <div className="absolute z-50 flex flex-wrap items-center break-words bg-shades-white bg-opacity-25 p-2 backdrop-blur-sm">
-                            {editMode === true &&
-                              (isDraggingOver || categoryEdit === document.categoryName) &&
-                              editMode === true &&
-                              localDashboardData
-                                .find((cat) => cat.categoryName === document.categoryName)
-                                ?.mainData.filter((item) => typeof item.data[0]?.value === 'number')
-                                .map((item) => (
-                                  <div key={item.id} className="m-1 flex items-center">
-                                    <input
-                                      type="checkbox"
-                                      className="h-5 w-5"
-                                      checked={combinedChart.chartIds?.includes(item.id)}
-                                      onChange={() =>
-                                        handleCheck(
-                                          document.categoryName,
-                                          item.id,
-                                          combinedChart.id,
-                                        )
-                                      }
-                                    />
-                                    <span
-                                      className={`ml-2 text-sm font-bold`}
-                                      style={{
-                                        color: getTitleColors(combinedChart.data)[
-                                          item.data[0].title
-                                        ],
-                                      }}
-                                    >
-                                      {item.data[0].title}
-                                    </span>
-                                  </div>
-                                ))}
-                          </div>
+                          {(isDraggingOver || categoryEdit === document.categoryName) &&
+                            editMode === true && (
+                              <div className="absolute z-50 flex flex-wrap items-center break-words bg-shades-white bg-opacity-25 p-2 backdrop-blur-sm">
+                                {localDashboardData
+                                  .find((cat) => cat.categoryName === document.categoryName)
+                                  ?.mainData.filter(
+                                    (item) => typeof item.data[0]?.value === 'number',
+                                  )
+                                  .map((item) => (
+                                    <div key={item.id} className="m-1 flex items-center">
+                                      <input
+                                        type="checkbox"
+                                        className="h-5 w-5"
+                                        checked={combinedChart.chartIds?.includes(item.id)}
+                                        onChange={() =>
+                                          handleCheck(
+                                            document.categoryName,
+                                            item.id,
+                                            combinedChart.id,
+                                          )
+                                        }
+                                      />
+                                      <span
+                                        className={`ml-2 text-sm font-bold`}
+                                        style={{
+                                          color: getTitleColors(combinedChart.data)[
+                                            item.data[0].title
+                                          ],
+                                        }}
+                                      >
+                                        {item.data[0].title}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
                           {(isDraggingOver || categoryEdit === document.categoryName) &&
                             editMode === true && (
                               <div
@@ -451,7 +453,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                             <div className="ml-[5%]">
                               {generateChart({
                                 chartType: combinedChart.chartType,
-                                data: combinedChart.data,
+                                data: combinedData[document.categoryName] || [],
                                 titleColors: getTitleColors(combinedChart.data),
                               })}
                             </div>
@@ -538,9 +540,9 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                           </div>
                           <div className="ml-[5%]">
                             {generateChart({
-                              chartType: 'IndexLine',
+                              chartType: appliedChartTypes[document.categoryName],
                               data: getDataType(
-                                'IndexLine',
+                                appliedChartTypes[document.categoryName],
                                 summaryData[document.categoryName] || [],
                                 combinedData[document.categoryName] || [],
                                 [],

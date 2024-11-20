@@ -1,69 +1,92 @@
-import { CombinedChart, IndexedEntries } from '@/types/types';
+import { CombinedChart } from '@/types/types';
 import React from 'react';
-
 import {
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
-  AreaChart,
-  Area,
-  Legend,
   Tooltip,
+  Legend,
   ResponsiveContainer,
-  LineChart,
-  Line,
 } from 'recharts';
+import { formatDate } from '../../../../../utils/format';
 
-type Props = {
+interface Props {
   data: CombinedChart[];
-};
+  titleColors: { [title: string]: string };
+}
 
-const IndexLineGraph = ({ data }: Props) => {
-  const colors = ['#8884d8', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-  const combinedData = data.reduce((acc, series) => {
-    series.data.forEach((point, idx) => {
-      const existing = acc.find((p) => p.date === point.date);
-      if (existing) {
-        existing[series.data[idx].title] = point.value;
-      } else {
-        acc.push({ date: point.date, [series.data[idx].title]: point.value });
+// Helper to transform data
+const transformData = (combinedData: CombinedChart[]): any[] => {
+  const result: any[] = [];
+  combinedData.forEach((chart) => {
+    chart.data.forEach((entry, index) => {
+      if (typeof entry.value === 'number') {
+        result.push({
+          date: `${formatDate(entry.date)}-${index}`,
+          value: entry.value,
+          title: entry.title,
+        });
       }
     });
-    return acc;
-  }, [] as any[]);
+  });
+  return result;
+};
+
+// Helper to group data by title
+const groupByTitle = (data: any[]) => {
+  return data.reduce(
+    (acc, item) => {
+      if (!acc[item.title]) {
+        acc[item.title] = [];
+      }
+      acc[item.title].push(item);
+      return acc;
+    },
+    {} as Record<string, any[]>,
+  );
+};
+
+const IndexLineGraph = (props: Props) => {
+  // Transform data
+  const structuredData = transformData(props.data);
+
+  // Group data by title
+  const groupedData = groupByTitle(structuredData);
 
   return (
-    <div style={{ width: '100%', height: 200 }}>
-      <ResponsiveContainer>
-        <LineChart data={combinedData}>
-          <defs>
-            {data.map((series, idx) => (
-              <linearGradient key={idx} id={series.id.toString()} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={colors[idx % colors.length]} stopOpacity={0.8} />
-                <stop offset="95%" stopColor={colors[idx % colors.length]} stopOpacity={0} />
-              </linearGradient>
-            ))}
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Legend iconType="circle" />
-          {data.map((series, idx) => (
-            <Line
-              key={series.id}
-              type="monotone"
-              dataKey={series.data[idx]?.title}
-              stroke={colors[idx % colors.length]}
-              strokeWidth={3}
-              fillOpacity={1}
-              fill={`url(#${series.id})`}
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <ResponsiveContainer width="100%" height={250}>
+      <LineChart
+        data={structuredData}
+        margin={{
+          top: 5,
+          right: 30,
+          left: 20,
+          bottom: 5,
+        }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="date" />
+        <YAxis />
+        <Tooltip />
+
+        {/* Dynamically generate Lines */}
+        {Object.entries(groupedData).map(([title, data], index) => (
+          <Line
+            key={title}
+            type="monotone"
+            dataKey="value"
+            data={data}
+            name={title}
+            stroke={props.titleColors[title]}
+            strokeWidth={3}
+            fill={props.titleColors[title]}
+            activeDot={{ r: 8 }}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
   );
 };
 
