@@ -1,9 +1,9 @@
-import { ChartType, Entry, IndexedEntries } from '@/types/types';
+import { ChartType, CombinedChart, Entry, IndexedEntries } from '@/types/types';
 
 export const getDataType = (
   chartType: ChartType,
   summaryData: Entry[],
-  combinedData: IndexedEntries[],
+  combinedData: CombinedChart[],
   itemsData: Entry[],
 ) => {
   switch (chartType) {

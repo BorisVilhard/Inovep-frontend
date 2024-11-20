@@ -1,32 +1,4 @@
-export type EntryValue = number | string;
-
-export interface Entry {
-  title: string;
-  value: EntryValue;
-  date: string;
-  fileName: string;
-}
-
-export interface DashboardCategory {
-  categoryName: string;
-  mainData: IndexedEntries[];
-  combinedCharts?: CombinedChart[];
-  summaryData?: Entry[];
-}
-
-export interface CombinedChart {
-  chartType: ChartType;
-  chartIds: string[];
-  data: Entry[];
-}
-
-export interface IndexedEntries {
-  id: string;
-  chartType: ChartType;
-  data: Entry[];
-  isChartTypeChanged?: boolean;
-  fileName: string;
-}
+// types/types.ts
 
 export type ChartType =
   | 'EntryArea'
@@ -41,31 +13,12 @@ export type ChartType =
   | 'Radar'
   | 'Area';
 
-export interface DashboardCategory {
-  categoryName: string;
-  mainData: IndexedEntries[];
-  combinedData?: IndexedEntries[];
-}
-
-export interface DocumentData {
-  _id: string;
-  dashboardName: string;
-  dashboardData: DashboardCategory[];
-  files: { filename: string; content: any }[];
-}
-
-export interface CustomDropdownItem {
-  id: string;
-  name: string;
-}
-
 export interface Entry {
   title: string;
-  value: EntryValue;
+  value: number | string;
   date: string;
   fileName: string;
 }
-
 export interface IndexedEntries {
   id: string;
   chartType: ChartType;
@@ -74,13 +27,20 @@ export interface IndexedEntries {
   fileName: string;
 }
 
+export interface CombinedChart {
+  id: string;
+  chartType: ChartType;
+  chartIds: string[];
+  data: Entry[];
+}
+
 export interface DashboardCategory {
   categoryName: string;
   mainData: IndexedEntries[];
-  combinedData?: IndexedEntries[];
-  checkedIds?: string[];
-  appliedChartType?: ChartType;
+  combinedData?: CombinedChart[];
   summaryData?: Entry[];
+  appliedChartType?: ChartType;
+  checkedIds?: string[];
 }
 
 export interface DocumentData {
@@ -88,9 +48,4 @@ export interface DocumentData {
   dashboardName: string;
   dashboardData: DashboardCategory[];
   files: { filename: string; content: any }[];
-}
-
-export interface CustomDropdownItem {
-  id: string;
-  name: string;
 }

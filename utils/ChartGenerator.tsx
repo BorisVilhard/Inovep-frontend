@@ -4,12 +4,12 @@ import IndexLineGraph from '@/app/components/Graphs/LineGraph/IndexLineGraph';
 import TradingLineChart from '@/app/components/Graphs/LineGraph/TradingLineGraph';
 import PieGraph from '@/app/components/Graphs/PieGraph/PieGraph';
 import RadarGraph from '@/app/components/Graphs/PieGraph/Radar';
-import { ChartType, Entry, IndexedEntries } from '@/types/types';
+import { ChartType, CombinedChart, Entry, IndexedEntries } from '@/types/types';
 import { getTitleColors } from './getTitleColors';
 
 type GenerateChartProps = {
   chartType: ChartType;
-  data: Entry[] | IndexedEntries[];
+  data: Entry[] | CombinedChart[];
   titleColors?: { [title: string]: string };
 };
 
@@ -23,19 +23,19 @@ export const generateChart = ({ chartType, data, titleColors }: GenerateChartPro
       return <EntryAreaGraph data={data as Entry[]} />;
     case 'IndexLine':
       if (!titleColors) {
-        titleColors = getTitleColors(data as IndexedEntries[]);
+        titleColors = getTitleColors(data as CombinedChart[]);
       }
-      return <IndexLineGraph data={data as IndexedEntries[]} titleColors={titleColors} />;
+      return <IndexLineGraph data={data as CombinedChart[]} titleColors={titleColors} />;
     case 'TradingLine':
       return <TradingLineChart data={data as Entry[]} />;
     case 'Pie':
       if (!titleColors) {
-        titleColors = getTitleColors(data as IndexedEntries[]);
+        titleColors = getTitleColors(data as Entry[]);
       }
       return <PieGraph data={data as Entry[]} titleColors={titleColors} />;
     case 'Radar':
       if (!titleColors) {
-        titleColors = getTitleColors(data as IndexedEntries[]);
+        titleColors = getTitleColors(data as Entry[]);
       }
       return <RadarGraph data={data as Entry[]} titleColors={titleColors} />;
     default:

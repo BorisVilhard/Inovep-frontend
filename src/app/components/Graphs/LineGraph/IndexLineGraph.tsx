@@ -1,110 +1,64 @@
-import { IndexedEntries } from '@/types/types';
+import { CombinedChart, IndexedEntries } from '@/types/types';
 import React from 'react';
+
 import {
   XAxis,
   YAxis,
   CartesianGrid,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
+  Legend,
   Tooltip,
   ResponsiveContainer,
+  LineChart,
+  Line,
 } from 'recharts';
 
 type Props = {
-  data: IndexedEntries[];
-  titleColors: { [title: string]: string };
+  data: CombinedChart[];
 };
 
-const IndexLineGraph = ({ data, titleColors }: Props) => {
-  const allDatesSet = new Set<string>();
-  data.forEach((series) => {
-    series.data.forEach((point) => {
-      allDatesSet.add(point.date);
+const IndexLineGraph = ({ data }: Props) => {
+  const colors = ['#8884d8', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+  const combinedData = data.reduce((acc, series) => {
+    series.data.forEach((point, idx) => {
+      const existing = acc.find((p) => p.date === point.date);
+      if (existing) {
+        existing[series.data[idx].title] = point.value;
+      } else {
+        acc.push({ date: point.date, [series.data[idx].title]: point.value });
+      }
     });
-  });
-  const allDates = Array.from(allDatesSet).sort();
-
-  const titles = Object.keys(titleColors);
-
-  let combinedData: any[] = [];
-
-  if (allDates.length === 1) {
-    const maxLength = Math.max(...data.map((series) => series.data.length));
-
-    combinedData = Array.from({ length: maxLength }, (_, idx) => ({
-      x: idx,
-      date: allDates[0],
-    }));
-
-    data.forEach((series) => {
-      series.data.forEach((point, idx) => {
-        if (!combinedData[idx]) {
-          combinedData[idx] = { x: idx, date: point.date };
-        }
-        combinedData[idx][point.title] = point.value;
-      });
-    });
-
-    titles.forEach((title) => {
-      combinedData.forEach((dataPoint) => {
-        if (!(title in dataPoint)) {
-          dataPoint[title] = null;
-        }
-      });
-    });
-  } else {
-    const dataMap = new Map<string, any>();
-    data.forEach((series) => {
-      series.data.forEach((point) => {
-        const date = point.date;
-        if (!dataMap.has(date)) {
-          dataMap.set(date, { date });
-        }
-        const entry = dataMap.get(date);
-        if (!(point.title in entry)) {
-          entry[point.title] = 0;
-        }
-        entry[point.title] += point.value;
-      });
-    });
-
-    combinedData = Array.from(dataMap.values()).sort((a, b) => a.date.localeCompare(b.date));
-
-    titles.forEach((title) => {
-      combinedData.forEach((dataPoint) => {
-        if (!(title in dataPoint)) {
-          dataPoint[title] = null;
-        }
-      });
-    });
-  }
+    return acc;
+  }, [] as any[]);
 
   return (
     <div style={{ width: '100%', height: 200 }}>
       <ResponsiveContainer>
         <LineChart data={combinedData}>
+          <defs>
+            {data.map((series, idx) => (
+              <linearGradient key={idx} id={series.id.toString()} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={colors[idx % colors.length]} stopOpacity={0.8} />
+                <stop offset="95%" stopColor={colors[idx % colors.length]} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey={allDates.length === 1 ? 'x' : 'date'}
-            tickFormatter={(tick) => {
-              if (allDates.length === 1) {
-                return combinedData[tick] ? combinedData[tick].date : '';
-              } else {
-                return tick;
-              }
-            }}
-          />
+          <XAxis dataKey="date" />
           <YAxis />
           <Tooltip />
-
-          {titles.map((title) => (
+          <Legend iconType="circle" />
+          {data.map((series, idx) => (
             <Line
-              key={title}
+              key={series.id}
               type="monotone"
-              dataKey={title}
-              stroke={titleColors[title]}
+              dataKey={series.data[idx]?.title}
+              stroke={colors[idx % colors.length]}
               strokeWidth={3}
-              connectNulls={false}
+              fillOpacity={1}
+              fill={`url(#${series.id})`}
             />
           ))}
         </LineChart>

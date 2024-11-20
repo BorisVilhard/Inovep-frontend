@@ -7,6 +7,7 @@ const RADIAN = Math.PI / 180;
 
 interface Props {
   data: Entry[];
+  titleColors: { [title: string]: string };
 }
 
 const iR = 80;
@@ -69,7 +70,7 @@ const needle = (
   ];
 };
 
-const Radar: FC<Props> = ({ data }) => {
+const Radar: FC<Props> = ({ data, titleColors }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 500, height: 250 });
 
@@ -108,7 +109,7 @@ const Radar: FC<Props> = ({ data }) => {
             stroke="none"
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+              <Cell key={`cell-${index}`} fill={titleColors[entry.title] || '#8884d8'} />
             ))}
           </Pie>
           <Tooltip />

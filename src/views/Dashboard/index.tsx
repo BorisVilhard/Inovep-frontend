@@ -1,7 +1,9 @@
+// components/Dashboard.tsx
+
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
 import DataBar from './features/DataBar';
-import { ChartType, DashboardCategory, DocumentData, Entry, IndexedEntries } from '@/types/types';
+import { ChartType, DashboardCategory, DocumentData, Entry, CombinedChart } from '@/types/types';
 import { useAggregateData } from '../../../utils/aggregateData';
 import ComponentDrawer from './components/ComponentDrawer';
 import ChartPanel from './features/ChartPanel';
@@ -52,7 +54,36 @@ const DashboardFormSchema = zod.object({
           fileName: zod.string(),
         }),
       ),
-      combinedData: zod.array(zod.any()).optional(),
+      combinedData: zod
+        .array(
+          zod.object({
+            id: zod.string(),
+            chartType: zod.enum([
+              'EntryArea',
+              'IndexArea',
+              'EntryLine',
+              'IndexLine',
+              'TradingLine',
+              'IndexBar',
+              'Bar',
+              'Pie',
+              'Line',
+              'Radar',
+              'Area',
+            ]),
+            chartIds: zod.array(zod.string()),
+            data: zod.array(
+              zod.object({
+                title: zod.string(),
+                value: zod.union([zod.number(), zod.string()]),
+                date: zod.string(),
+                fileName: zod.string(),
+              }),
+            ),
+          }),
+        )
+        .optional(),
+
       summaryData: zod
         .array(
           zod.object({
@@ -91,7 +122,7 @@ const Dashboard = () => {
   const [fileName, setFileName] = useState<string>('');
   const [editMode, setEditMode] = useState(false);
   const { id: userId, accessToken } = useStore();
-  const [combinedData, setCombinedData] = useState<{ [category: string]: IndexedEntries[] }>({});
+  const [combinedData, setCombinedData] = useState<{ [category: string]: CombinedChart[] }>({});
   const [summaryData, setSummaryData] = useState<{ [category: string]: Entry[] }>({});
   const [checkedIds, setCheckedIds] = useState<{ [category: string]: string[] }>({});
   const [appliedChartTypes, setAppliedChartTypes] = useState<{ [category: string]: ChartType }>({});
@@ -206,15 +237,23 @@ const Dashboard = () => {
 
     reset({ dashboardData: newData.dashboardData });
 
-    const initialCombinedData: { [key: string]: IndexedEntries[] } = {};
+    const initialCombinedData: { [key: string]: CombinedChart[] } = {};
     const initialSummaryData: { [key: string]: Entry[] } = {};
     const initialAppliedChartTypes: { [key: string]: ChartType } = {};
     const initialCheckedIds: { [key: string]: string[] } = {};
 
     newData.dashboardData.forEach((category) => {
       if (category.combinedData) {
-        initialCombinedData[category.categoryName] = category.combinedData;
+        initialCombinedData[category.categoryName] = (category.combinedData as CombinedChart[]).map(
+          (chart) => ({
+            id: chart.id,
+            chartType: chart.chartType,
+            chartIds: chart.chartIds,
+            data: chart.data,
+          }),
+        );
       }
+
       if (category.summaryData) {
         initialSummaryData[category.categoryName] = category.summaryData;
       }
@@ -420,14 +459,21 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (dashboardData) {
-      const initialCombinedData: { [category: string]: IndexedEntries[] } = {};
+      const initialCombinedData: { [category: string]: CombinedChart[] } = {};
       const initialSummaryData: { [category: string]: Entry[] } = {};
       const initialAppliedChartTypes: { [category: string]: ChartType } = {};
       const initialCheckedIds: { [category: string]: string[] } = {};
 
       dashboardData.dashboardData.forEach((category) => {
         if (category.combinedData) {
-          initialCombinedData[category.categoryName] = category.combinedData;
+          initialCombinedData[category.categoryName] = category.combinedData.map(
+            (chart: CombinedChart) => ({
+              id: chart.id,
+              chartType: chart.chartType,
+              chartIds: chart.chartIds,
+              data: chart.data,
+            }),
+          );
         }
         if (category.summaryData) {
           initialSummaryData[category.categoryName] = category.summaryData;
@@ -449,18 +495,35 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (currentCategory && checkedIds[currentCategory]?.length > 0) {
-      const newCombinedData = checkedIds[currentCategory].reduce<IndexedEntries[]>((acc, id) => {
+      const newCombinedEntries: Entry[] = checkedIds[currentCategory].reduce<Entry[]>((acc, id) => {
         const entryData =
           dashboardData?.dashboardData
             .filter((section) => section.categoryName === currentCategory)
-            .flatMap((section) => section.mainData.filter((entry) => entry.id === id)) || [];
+            .flatMap((section) => section.mainData.filter((entry) => entry.id === id))
+            .flatMap((entry) => entry.data) || [];
         return [...acc, ...entryData];
       }, []);
-      setCombinedData((prev) => ({ ...prev, [currentCategory]: newCombinedData }));
+
+      // Create a CombinedChart object
+      const newCombinedChart: CombinedChart = {
+        id: `combined-${Date.now()}`, // Generate a unique ID
+        chartType: appliedChartTypes[currentCategory] || 'Area', // Use existing or default chart type
+        chartIds: checkedIds[currentCategory], // The IDs being combined
+        data: newCombinedEntries, // The aggregated Entry data
+      };
+
+      // Update combinedData with the new CombinedChart
+      setCombinedData((prev) => ({
+        ...prev,
+        [currentCategory]: [...(prev[currentCategory] || []), newCombinedChart],
+      }));
     } else if (currentCategory) {
-      setCombinedData((prev) => ({ ...prev, [currentCategory]: [] }));
+      setCombinedData((prev) => ({
+        ...prev,
+        [currentCategory]: [],
+      }));
     }
-  }, [checkedIds, currentCategory, dashboardData]);
+  }, [checkedIds, currentCategory, dashboardData, appliedChartTypes]);
 
   useEffect(() => {
     if (
@@ -553,6 +616,7 @@ const Dashboard = () => {
           getCategoryEdit={setCurrentCategory}
           summaryData={summaryData}
           combinedData={combinedData}
+          setCombinedData={setCombinedData}
           appliedChartTypes={appliedChartTypes}
           checkedIds={checkedIds}
           deleteDataByFileName={deleteDataByFileName}
