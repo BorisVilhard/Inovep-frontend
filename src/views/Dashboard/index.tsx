@@ -1,7 +1,5 @@
-// components/Dashboard.tsx
-
 'use client';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import DataBar from './features/DataBar';
 import { ChartType, DashboardCategory, DocumentData, Entry, CombinedChart } from '@/types/types';
 import { useAggregateData } from '../../../utils/aggregateData';

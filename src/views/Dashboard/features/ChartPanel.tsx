@@ -6,7 +6,6 @@ import { ChartWrapper } from '../components/ChartWrapper';
 import { generateChart } from '../../../../utils/ChartGenerator';
 import ChartOverlay from '../components/ChartOverlay';
 import { getDataType } from '../../../../utils/getDataType';
-import { getEditMode } from '../../../../utils/editModeStore';
 import { ChartType, DashboardCategory, Entry, CombinedChart, IndexedEntries } from '@/types/types';
 import axios from 'axios';
 import useAuthStore from '@/views/auth/api/userReponse';
@@ -258,7 +257,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       >
         <Masonry
           breakpointCols={breakpointColumnsObj}
-          className={classNames('z-20 flex gap-5 p-5 transition-all duration-500 ease-in-out', {
+          className={classNames('z-20 flex gap-5 p-5', {
             'ml-[10px] mr-[20px] w-[75vw] border-2 border-dashed border-primary-90': editMode,
             'w-[90vw] border-2 border-dashed border-transparent': !editMode,
           })}
@@ -284,7 +283,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                     .map((items: IndexedEntries) => (
                       <div className="my-2 flex items-center justify-between gap-3" key={items.id}>
                         {items.data && items.data.length <= 1 && (
-                          <h1 className={`flex flex-col text-lg font-bold `}>
+                          <h1 className={`flex  flex-col text-lg font-bold `}>
                             {items.data[0]?.title}:
                           </h1>
                         )}
@@ -295,14 +294,23 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               <div
                                 onDrop={(event) => handleDrop(event, items.id)}
                                 onDragOver={(e) => e.preventDefault()}
-                                className="absolute z-50"
+                                className="absolute z-50 w-full"
                               >
-                                <input
-                                  type="checkbox"
-                                  className="absolute left-1 top-1 z-50 h-5 w-5"
-                                  checked={checkedIds[document.categoryName]?.includes(items.id)}
-                                  onChange={() => handleCheck(document.categoryName, items.id)}
-                                />
+                                <div className="absolute left-1 top-1 z-50 w-full">
+                                  <div className="flex w-[98%] items-center gap-x-3 break-words bg-shades-white bg-opacity-25 p-2 backdrop-blur-sm">
+                                    <input
+                                      type="checkbox"
+                                      className="h-5 w-5"
+                                      checked={checkedIds[document.categoryName]?.includes(
+                                        items.id,
+                                      )}
+                                      onChange={() => handleCheck(document.categoryName, items.id)}
+                                    />
+                                    <h1 className={`text-[16px] font-bold `}>
+                                      {items.data[0]?.title}
+                                    </h1>
+                                  </div>
+                                </div>
                               </div>
                             )}
                             {((isDraggingOver && items.id === chartEdit) ||
@@ -330,9 +338,12 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               })}
                               onDragOver={(e) => handleDragOver(items.id, e)}
                             >
-                              <h1 className={`mb-1 flex flex-col text-[16px] font-bold `}>
-                                {items.data[0]?.title}:
-                              </h1>
+                              {!isDraggingOver && items.id !== chartEdit && (
+                                <h1 className={`mb-1 flex  flex-col text-[16px] font-bold `}>
+                                  {items.data[0]?.title}:
+                                </h1>
+                              )}
+
                               <div className="ml-[5%]">
                                 {generateChart({
                                   chartType: items.chartType,
@@ -414,9 +425,19 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                 onDragEnd={() => setIsDraggingOver(false)}
                               >
                                 <ChartOverlay>
-                                  {categoryEdit === document.categoryName
-                                    ? 'Combine / Change Chart'
-                                    : 'Change Chart'}
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="checkbox"
+                                      className="h-5 w-5"
+                                      checked={combinedChart.chartIds?.includes('')}
+                                      onChange={() =>
+                                        handleCheck(document.categoryName, '', combinedChart.id)
+                                      }
+                                    />
+                                    {categoryEdit === document.categoryName
+                                      ? 'Change Chart'
+                                      : 'Change Chart'}
+                                  </div>
                                 </ChartOverlay>
                               </div>
                             )}
@@ -436,7 +457,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                   entry && (
                                     <h1
                                       key={id}
-                                      className={`mb-1  text-[16px] font-bold`}
+                                      className={`mb-1 text-[16px] font-bold`}
                                       style={{
                                         color: getTitleColors(combinedChart.data)[
                                           entry.data[0].title
@@ -503,7 +524,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                             >
                               <ChartOverlay>
                                 {categoryEdit === document.categoryName
-                                  ? 'Combine / Change Chart'
+                                  ? 'Change Chart'
                                   : 'Change Chart'}
                               </ChartOverlay>
                             </div>

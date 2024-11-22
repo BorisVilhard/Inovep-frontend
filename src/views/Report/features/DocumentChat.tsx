@@ -313,19 +313,19 @@ function DocumentChat() {
   };
 
   return (
-    <main className="bg-background flex h-full max-h-dvh w-full flex-col items-center justify-center">
+    <main className="flex h-full max-h-dvh w-full flex-col items-center justify-center">
       <div className="flex w-full  justify-center ">
         <aside className="hidden w-[25%] overflow-y-auto p-4 lg:block">
           <div className=" rounded-t-2xl bg-gray-900 p-6">
             <h2 className="mb-4 text-xl  font-bold text-white">Your Chats</h2>
           </div>
 
-          <ul className=" h-[50vh] bg-neutral-20">
+          <ul className=" h-[50vh] bg-neutral-10">
             {chats.map((chat) => (
               <li
                 key={chat._id}
                 className={`mb-2 cursor-pointer rounded p-2 ${
-                  chatId === chat._id ? 'bg-neutral-40' : 'bg-neutral-20'
+                  chatId === chat._id ? 'bg-neutral-40' : 'bg-neutral-10'
                 }`}
                 onClick={() => handleChatSelection(chat._id)}
               >
@@ -353,10 +353,13 @@ function DocumentChat() {
                 selectedId={selectedDashboard?.id}
               />
             </header>
-            <form onSubmit={handleFormSubmit} className="mx-auto flex w-full items-center gap-5">
+            <form
+              onSubmit={handleFormSubmit}
+              className="mx-auto flex w-full items-center gap-5 rounded-full bg-shades-white p-1"
+            >
               <input
                 name="message"
-                className="min-h-[40px] flex-1"
+                className="ml-[20px] min-h-[40px] flex-1 outline-none"
                 placeholder="Type your question here..."
                 type="text"
                 value={input}
@@ -368,7 +371,7 @@ function DocumentChat() {
             </form>
           </section>
 
-          <section className="container mx-auto mb-[100px] flex h-[50vh] max-w-3xl flex-grow flex-col gap-4 rounded-b-2xl bg-neutral-20 px-0 pb-10">
+          <section className="container mx-auto mb-[100px] flex h-[50vh] max-w-3xl flex-grow flex-col gap-4 rounded-b-2xl bg-neutral-10 px-0 pb-10">
             <ul
               ref={chatParent}
               className="flex h-1 flex-grow flex-col gap-4 overflow-y-auto rounded-lg p-4"
