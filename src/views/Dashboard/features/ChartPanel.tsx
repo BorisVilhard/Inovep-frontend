@@ -12,6 +12,7 @@ import useAuthStore from '@/views/auth/api/userReponse';
 import { useUpdateChartStore } from '../../../../utils/updateChart';
 import Masonry from 'react-masonry-css';
 import { getTitleColors } from '../../../../utils/getTitleColors';
+import { getEditMode } from '../../../../utils/editModeStore';
 
 interface ChartPanelProps {
   fileName: string;
@@ -35,7 +36,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   summaryData,
   combinedData,
   setCombinedData,
-  getCategoryEdit,
   appliedChartTypes,
   checkedIds,
   dashboardId,
@@ -43,7 +43,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   const [categoryEdit, setCategoryEdit] = useState<string | undefined>(undefined);
   const [chartEdit, setChartEdit] = useState<string | undefined>(undefined);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-
+  const [checkedType, setCheckedType] = useState<'entry' | 'index' | undefined>(undefined);
   const [localDashboardData, setLocalDashboardData] = useState<DashboardCategory[]>(dashboardData);
 
   const { chartType: globalChartType, setChartData } = useUpdateChartStore();
@@ -96,16 +96,30 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     });
   }, [combinedData, summaryData, updateCategoryDataInBackend]);
 
-  // Handle checking/unchecking of charts for combining
   const handleCheck = useCallback(
     (category: string, id: string, combinedChartId: string | null = null) => {
-      setCombinedData((prevCombinedData) => {
-        const categoryCombinedCharts = prevCombinedData[category] || [];
-        let updatedCombinedCharts = [...categoryCombinedCharts];
+      if (id === '' && combinedChartId) {
+        // Selecting the combined chart itself for chart type update
+        setCheckedType('index');
 
-        if (combinedChartId) {
-          // Update the specific combined chart
-          updatedCombinedCharts = updatedCombinedCharts.map((chart) => {
+        const chartId = combinedChartId;
+        const categoryCheckedIds = checkedIds[category] || [];
+        const newCategoryCheckedIds = categoryCheckedIds.includes(chartId)
+          ? categoryCheckedIds.filter((i) => i !== chartId)
+          : [...categoryCheckedIds, chartId];
+
+        // Update the checked IDs
+        getCheckIds({
+          ...checkedIds,
+          [category]: newCategoryCheckedIds,
+        });
+      } else if (combinedChartId) {
+        // Updating the composition of a combined chart
+        setCheckedType('index');
+
+        setCombinedData((prevCombinedData) => {
+          const categoryCombinedCharts = prevCombinedData[category] || [];
+          let updatedCombinedCharts = categoryCombinedCharts.map((chart) => {
             if (chart.id === combinedChartId) {
               const isChecked = chart.chartIds?.includes(id);
               const newChartIds = isChecked
@@ -140,44 +154,78 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
           updatedCombinedCharts = updatedCombinedCharts.filter(
             (chart) => chart.chartIds?.length >= 2,
           );
-        } else {
-          // Handle individual chart checkbox (not part of any combined chart)
-          const categoryCheckedIds = checkedIds[category] || [];
-          const newCategoryCheckedIds = categoryCheckedIds.includes(id)
-            ? categoryCheckedIds.filter((i) => i !== id)
-            : [...categoryCheckedIds, id];
 
-          // If at least two IDs are checked, create a new combined chart
-          if (newCategoryCheckedIds.length >= 2) {
+          return {
+            ...prevCombinedData,
+            [category]: updatedCombinedCharts,
+          };
+        });
+      } else {
+        // Existing code for handling individual charts
+        // Update checkedIds
+        const categoryCheckedIds = checkedIds[category] || [];
+        const chartId = id;
+        const newCategoryCheckedIds = categoryCheckedIds.includes(chartId)
+          ? categoryCheckedIds.filter((i) => i !== chartId)
+          : [...categoryCheckedIds, chartId];
+
+        // Update the checked IDs
+        getCheckIds({
+          ...checkedIds,
+          [category]: newCategoryCheckedIds,
+        });
+
+        // Proceed with combining logic if necessary
+        if (newCategoryCheckedIds.length >= 2) {
+          setCheckedType('entry');
+
+          // Combining logic
+          // For combining individual charts, not combined charts
+          // So we need to filter out any combined chart IDs
+          const individualChartIds = newCategoryCheckedIds.filter((id) => {
+            // Check if the ID is of an individual chart, not a combined chart
+            const isCombinedChart = (combinedData[category] || []).some((chart) => chart.id === id);
+            return !isCombinedChart;
+          });
+
+          if (individualChartIds.length >= 2) {
             const newCombinedChart: CombinedChart = {
               id: `combined-${Date.now()}`, // Unique ID for the combined chart
               chartType: appliedChartTypes[category] || 'IndexLine', // Default or existing chart type
-              chartIds: newCategoryCheckedIds,
-              data: getCombinedChartData(category, newCategoryCheckedIds),
+              chartIds: individualChartIds,
+              data: getCombinedChartData(category, individualChartIds),
             };
-            updatedCombinedCharts.push(newCombinedChart);
+
+            setCombinedData((prevCombinedData) => {
+              const updatedCombinedCharts = [
+                ...(prevCombinedData[category] || []),
+                newCombinedChart,
+              ];
+
+              return {
+                ...prevCombinedData,
+                [category]: updatedCombinedCharts,
+              };
+            });
 
             // Clear the individual checked IDs
             getCheckIds({
               ...checkedIds,
               [category]: [],
             });
+          }
+
+          setCheckedType(undefined);
+        } else {
+          if (newCategoryCheckedIds.length > 0) {
+            setCheckedType('entry');
           } else {
-            // Update the checked IDs
-            getCheckIds({
-              ...checkedIds,
-              [category]: newCategoryCheckedIds,
-            });
+            setCheckedType(undefined);
           }
         }
-
-        return {
-          ...prevCombinedData,
-          [category]: updatedCombinedCharts,
-        };
-      });
+      }
     },
-    [checkedIds, appliedChartTypes, getCheckIds, setCombinedData],
+    [checkedIds, appliedChartTypes, getCheckIds, setCombinedData, combinedData],
   );
 
   // Helper Function to Get Combined Chart Data
@@ -189,6 +237,60 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         .flatMap((entry) => entry.data) || [];
     return entries;
   };
+
+  // Effect to update chartType when globalChartType changes
+  useEffect(() => {
+    if (globalChartType) {
+      // Iterate over checkedIds
+      Object.keys(checkedIds).forEach((category) => {
+        const chartIds = checkedIds[category];
+
+        if (chartIds.length > 0) {
+          // Update chartType for each checked chart
+          setLocalDashboardData((prevData) =>
+            prevData.map((cat) => {
+              if (cat.categoryName === category) {
+                return {
+                  ...cat,
+                  mainData: cat.mainData.map((item) =>
+                    chartIds.includes(item.id) ? { ...item, chartType: globalChartType } : item,
+                  ),
+                };
+              }
+              return cat;
+            }),
+          );
+
+          // Update chartType for combined charts if needed
+          setCombinedData((prevCombinedData) => {
+            const categoryCombinedCharts = prevCombinedData[category] || [];
+            const updatedCombinedCharts = categoryCombinedCharts.map((chart) => {
+              if (chartIds.includes(chart.id)) {
+                return {
+                  ...chart,
+                  chartType: globalChartType,
+                };
+              }
+              return chart;
+            });
+            return {
+              ...prevCombinedData,
+              [category]: updatedCombinedCharts,
+            };
+          });
+
+          // Reset checkedIds for the category
+          getCheckIds({
+            ...checkedIds,
+            [category]: [],
+          });
+        }
+      });
+
+      // Reset globalChartType to undefined
+      setChartData(undefined);
+    }
+  }, [globalChartType]);
 
   // Handle Drag Over Event
   const handleDragOver = (id: string, e: React.DragEvent<HTMLDivElement>) => {
@@ -246,6 +348,17 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     1100: 2,
     700: 1,
   };
+
+  useEffect(() => {
+    if (categoryEdit) {
+      getEditMode(
+        checkedIds[categoryEdit]?.length ?? 0,
+        categoryEdit.length > 0,
+        Object.values(checkedIds).flat(),
+        checkedType,
+      );
+    }
+  }, [editMode, checkedIds, categoryEdit]);
 
   return (
     <div className="mt-5 flex w-full justify-center">
@@ -429,14 +542,16 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                     <input
                                       type="checkbox"
                                       className="h-5 w-5"
-                                      checked={combinedChart.chartIds?.includes('')}
+                                      checked={checkedIds[document.categoryName]?.includes(
+                                        combinedChart.id,
+                                      )}
                                       onChange={() =>
                                         handleCheck(document.categoryName, '', combinedChart.id)
                                       }
                                     />
                                     {categoryEdit === document.categoryName
-                                      ? 'Change Chart'
-                                      : 'Change Chart'}
+                                      ? 'Change Chart Type'
+                                      : 'Change Chart Type'}
                                   </div>
                                 </ChartOverlay>
                               </div>
@@ -474,7 +589,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                             <div className="ml-[5%]">
                               {generateChart({
                                 chartType: combinedChart.chartType,
-                                data: combinedData[document.categoryName] || [],
+                                data: combinedChart.data,
                                 titleColors: getTitleColors(combinedChart.data),
                               })}
                             </div>

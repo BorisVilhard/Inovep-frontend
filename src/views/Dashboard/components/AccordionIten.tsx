@@ -1,19 +1,18 @@
 import Image from 'next/image';
 import ReactDOMServer from 'react-dom/server';
 import React from 'react';
-import { useStore } from '../../../../utils/editModeStore';
 import classNames from 'classnames';
 import { setChartData } from '../../../../utils/updateChart';
 import { ChartType } from '@/types/types';
 import { IoCloseCircleOutline } from 'react-icons/io5';
+
 type Props = {
   type: ChartType;
   title: string;
   imageUrl: string;
   imageWidth?: number;
   imageHeight?: number;
-  isAccessible?: boolean;
-  isChecking?: boolean;
+  dataType?: 'entry' | 'index' | undefined;
 };
 
 export const AccordionItem: React.FC<Props> = ({
@@ -22,11 +21,9 @@ export const AccordionItem: React.FC<Props> = ({
   imageUrl,
   imageHeight,
   imageWidth,
-  isAccessible = true,
-  isChecking = false,
+  dataType = undefined,
 }) => {
   let dragCopy: HTMLDivElement | null = null;
-  const { combiningData } = useStore();
 
   const dragStartHandler = (event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('chartType', type);
@@ -50,23 +47,41 @@ export const AccordionItem: React.FC<Props> = ({
     }
   };
 
+  const assignedDataType = () => {
+    switch (type) {
+      case 'Pie':
+      case 'Radar':
+      case 'IndexBar':
+      case 'IndexArea':
+      case 'IndexLine':
+        return 'index';
+      case 'EntryArea':
+      case 'EntryLine':
+      case 'Bar':
+        return 'entry';
+      default:
+        return 'entry';
+    }
+  };
+
   return (
     <div
-      onClick={isAccessible ? () => setChartData(type) : () => {}}
+      onClick={dataType === 'entry' || 'index' ? () => setChartData(type) : () => {}}
       onDragStart={dragStartHandler}
       onDragEnd={dragEndHandler}
-      draggable={isAccessible && !isChecking}
+      draggable={dataType === undefined}
       className={classNames(
         'relative flex h-[120px] w-[170px] flex-col items-center  justify-between  rounded-md border-2 border-solid border-gray-700  bg-gray-700',
         {
-          'cursor-grab': isAccessible,
+          'cursor-grab': dataType === undefined,
           'cursor-pointer  hover:border-primary-90':
-            isChecking && isAccessible && combiningData >= 1,
-          'cursor-default border-gray-700 ': !isChecking && !isAccessible && combiningData !== 0,
+            dataType === ('entry' || 'index') && assignedDataType() === dataType,
+          'cursor-default border-gray-700 ':
+            assignedDataType() !== dataType && dataType !== undefined,
         },
       )}
     >
-      {!isAccessible && (
+      {assignedDataType() !== dataType && dataType !== undefined && (
         <div className="absolute h-full w-full">
           <div className="absolute z-40 h-full w-full bg-gray-700 opacity-70 blur-sm"></div>
           <span className="absolute z-50 flex h-full w-full items-center justify-center  text-[65px] opacity-80">

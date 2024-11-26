@@ -2,15 +2,15 @@ import { ChartType } from '@/types/types';
 import create from 'zustand';
 
 interface EditChartStore {
-  chartType: ChartType;
-  setChartData: (chartType: ChartType) => void;
+  chartType: ChartType | undefined;
+  setChartData: (chartType: ChartType | undefined) => void;
 }
 
 export const useUpdateChartStore = create<EditChartStore>((set) => ({
-  chartType: 'EntryArea',
-  setChartData: (chartType: ChartType) => set({ chartType }),
+  chartType: undefined,
+  setChartData: (chartType: ChartType | undefined) => set({ chartType }),
 }));
 
-export function setChartData(chartType: ChartType) {
+export function setChartData(chartType: ChartType | undefined) {
   useUpdateChartStore.getState().setChartData(chartType);
 }

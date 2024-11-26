@@ -8,8 +8,8 @@ interface Props {
 }
 
 const ComponentDrawer = (props: Props) => {
-  const { combiningData, isEditingCategory } = useStore();
-
+  const { type } = useStore();
+  console.log(type);
   return (
     <Drawer isOpened={(e) => props.isOpen(e)}>
       <Accordion
@@ -24,24 +24,13 @@ const ComponentDrawer = (props: Props) => {
                   imageUrl={'/img/charts/line.png'}
                   type={'EntryArea'}
                   title={'Line'}
-                  isAccessible={combiningData === 0 || combiningData === 1}
-                  isChecking={isEditingCategory}
-                />
-                <AccordionItem
-                  imageUrl={'/img/charts/IndexArea.png'}
-                  type={'IndexArea'}
-                  imageHeight={60}
-                  imageWidth={60}
-                  title={'MultiArea Chart'}
-                  isAccessible={combiningData > 1}
-                  isChecking={isEditingCategory}
+                  dataType={type}
                 />
                 <AccordionItem
                   imageUrl={'/img/charts/IndexLine.png'}
                   type={'IndexLine'}
                   title={'Multiple Line Chart'}
-                  isAccessible={combiningData > 1}
-                  isChecking={isEditingCategory}
+                  dataType={type}
                 />
                 <AccordionItem
                   imageUrl={'/img/charts/trading.png'}
@@ -49,8 +38,7 @@ const ComponentDrawer = (props: Props) => {
                   imageWidth={70}
                   type={'TradingLine'}
                   title={'Trading Chart'}
-                  isAccessible={combiningData <= 1}
-                  isChecking={isEditingCategory}
+                  dataType={type}
                 />
               </div>
             ),
@@ -63,23 +51,20 @@ const ComponentDrawer = (props: Props) => {
                   imageHeight={50}
                   imageWidth={50}
                   imageUrl={'/img/charts/Bar.png'}
-                  type={combiningData > 1 ? 'IndexBar' : 'Bar'}
-                  isAccessible={true}
-                  isChecking={isEditingCategory}
+                  dataType={type}
                   title={'Bar Chart'}
+                  type={type === 'entry' ? 'Bar' : 'IndexBar'}
                 />
                 <AccordionItem
-                  isAccessible={combiningData > 1}
                   imageHeight={60}
                   imageWidth={60}
                   imageUrl={'/img/charts/Pie.png'}
-                  isChecking={isEditingCategory}
                   type={'Pie'}
                   title={'Pie'}
+                  dataType={type}
                 />
                 <AccordionItem
-                  isAccessible={combiningData > 1}
-                  isChecking={isEditingCategory}
+                  dataType={type}
                   imageUrl={'/img/charts/Pie2.png'}
                   type={'Radar'}
                   title={'Radar'}
