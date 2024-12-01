@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import classNames from 'classnames';
 import { numberCatcher } from '../../../../utils/numberCatcher';
@@ -98,6 +99,16 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       updateCategoryDataInBackend(categoryName, combinedDataArray, summaryDataArray);
     });
   }, [combinedData, summaryData, updateCategoryDataInBackend]);
+
+  // Helper Function to Get Combined Chart Data
+  const getCombinedChartData = (category: string, chartIds: string[]): Entry[] => {
+    const entries =
+      localDashboardData
+        .find((cat) => cat.categoryName === category)
+        ?.mainData.filter((entry) => chartIds.includes(entry.id))
+        .flatMap((entry) => entry.data) || [];
+    return entries;
+  };
 
   // Updated handleCheck function to include uncheck behavior from combined charts
   const handleCheck = useCallback(
@@ -239,14 +250,31 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     ],
   );
 
-  // Helper Function to Get Combined Chart Data
-  const getCombinedChartData = (category: string, chartIds: string[]): Entry[] => {
-    const entries =
-      localDashboardData
-        .find((cat) => cat.categoryName === category)
-        ?.mainData.filter((entry) => chartIds.includes(entry.id))
-        .flatMap((entry) => entry.data) || [];
-    return entries;
+  // Helper function to update chart type in the backend
+  const updateChartType = async (
+    chartId: string,
+    newChartType: ChartType,
+    isCombined: boolean,
+    categoryName: string,
+  ) => {
+    const endpoint = isCombined
+      ? `category/${encodeURIComponent(categoryName.trim())}/combinedChart/${chartId}`
+      : `chart/${chartId}`;
+
+    const url = `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/${endpoint}`;
+
+    const payload = { chartType: newChartType };
+
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+    };
+
+    try {
+      await axios.put(url, payload, { headers });
+      console.log(`Chart ${chartId} updated to ${newChartType}`);
+    } catch (error) {
+      console.error('Error updating chartType:', error);
+    }
   };
 
   // Effect to update chartType when globalChartType changes
@@ -266,76 +294,37 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 
             if (isCombinedChart) {
               // Update combined chart's chartType in the backend
-              try {
-                await axios.put(
-                  `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/category/${encodeURIComponent(
-                    category.trim(),
-                  )}/combinedChart/${chartId}`,
-                  { chartType: globalChartType },
-                  {
-                    headers: {
-                      Authorization: `Bearer ${accessToken}`,
-                    },
-                  },
-                );
-                console.log(`Combined chart ${chartId} updated to ${globalChartType}`);
-              } catch (error) {
-                console.error('Error updating combined chartType:', error);
-              }
+              await updateChartType(chartId, globalChartType, true, category);
+
+              // Update the combined chart type in the state
+              setCombinedData((prev) => ({
+                ...prev,
+                [category]: prev[category].map((chart) =>
+                  chart.id === chartId ? { ...chart, chartType: globalChartType } : chart,
+                ),
+              }));
             } else {
               // Update individual chart's chartType in the backend
-              try {
-                await axios.put(
-                  `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/chart/${chartId}`,
-                  { chartType: globalChartType },
-                  {
-                    headers: {
-                      Authorization: `Bearer ${accessToken}`,
-                    },
-                  },
-                );
-                console.log(`Chart ${chartId} updated to ${globalChartType}`);
-              } catch (error) {
-                console.error('Error updating chartType:', error);
-              }
+              await updateChartType(chartId, globalChartType, false, category);
+
+              // Update the individual chart type in the local state
+              setLocalDashboardData((prevData) =>
+                prevData.map((cat) => {
+                  if (cat.categoryName === category) {
+                    return {
+                      ...cat,
+                      mainData: cat.mainData.map((item) =>
+                        chartIds.includes(item.id) ? { ...item, chartType: globalChartType } : item,
+                      ),
+                    };
+                  }
+                  return cat;
+                }),
+              );
             }
           });
 
-          // Update chartType for each checked chart locally
-          setLocalDashboardData((prevData) =>
-            prevData.map((cat) => {
-              if (cat.categoryName === category) {
-                return {
-                  ...cat,
-                  mainData: cat.mainData.map((item) =>
-                    chartIds.includes(item.id) ? { ...item, chartType: globalChartType } : item,
-                  ),
-                };
-              }
-              return cat;
-            }),
-          );
-
-          // Update chartType for combined charts if needed
-          setCombinedData((prevCombinedData) => {
-            const categoryCombinedCharts = prevCombinedData[category] || [];
-            const updatedCombinedCharts = categoryCombinedCharts.map((chart) => {
-              if (chartIds.includes(chart.id)) {
-                return {
-                  ...chart,
-                  chartType: globalChartType,
-                };
-              }
-              return chart;
-            });
-            return {
-              ...prevCombinedData,
-              [category]: updatedCombinedCharts,
-            };
-          });
-
-          // Note: Do not reset checkedIds here to keep checkboxes checked
-          // We will reset checkedIds when we switch category or exit edit mode
+          // Update localDashboardData and combinedData are handled above
         }
       });
 
@@ -352,6 +341,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     setChartData,
     setLocalDashboardData,
     setCombinedData,
+    updateChartType,
   ]);
 
   // Effect to reset checkedIds when exiting edit mode
@@ -361,7 +351,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       getCheckIds({});
       setCheckedType(undefined);
     }
-  }, [editMode]);
+  }, [editMode, getCheckIds]);
 
   // Effect to reset checkedIds when switching category
   useEffect(() => {
@@ -371,18 +361,19 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       setCheckedType(undefined);
     }
     previousCategoryEdit.current = categoryEdit;
-  }, [categoryEdit]);
+  }, [categoryEdit, getCheckIds]);
 
   // Handle Drag Over Event
-  const handleDragOver = (id: string, e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (category: string, id: string, e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setChartEdit(id);
     setIsDraggingOver(true);
+    setCategoryEdit(category);
   };
 
   // Handle Drop Event to Change Chart Type
   const handleDrop = useCallback(
-    async (event: React.DragEvent<HTMLDivElement>, chartId: string) => {
+    async (event: React.DragEvent<HTMLDivElement>, category: string, chartId: string) => {
       event.preventDefault();
       const newChartType = event.dataTransfer.getData('chartType') as ChartType;
 
@@ -391,27 +382,39 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         return;
       }
 
+      // Determine if the chartId corresponds to a combined chart
+      const categoryCombinedCharts = combinedData[category] || [];
+      const combinedChart = categoryCombinedCharts.find((chart) => chart.id === chartId);
+      const isCombined = !!combinedChart;
+
       try {
-        await axios.put(
-          `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}/chart/${chartId}`,
-          { chartType: newChartType },
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          },
-        );
+        // Update chart type in the backend
+        await updateChartType(chartId, newChartType, isCombined, category);
 
-        setChartData(newChartType);
-
-        setLocalDashboardData((prevData) =>
-          prevData.map((category) => ({
-            ...category,
-            mainData: category.mainData.map((item) =>
-              item.id === chartId ? { ...item, chartType: newChartType } : item,
+        if (isCombined && combinedChart) {
+          // Update the combined chart type in the state
+          setCombinedData((prev) => ({
+            ...prev,
+            [category]: prev[category].map((chart) =>
+              chart.id === chartId ? { ...chart, chartType: newChartType } : chart,
             ),
-          })),
-        );
+          }));
+        } else {
+          // Update the individual chart type in the local state
+          setLocalDashboardData((prevData) =>
+            prevData.map((cat) => {
+              if (cat.categoryName === category) {
+                return {
+                  ...cat,
+                  mainData: cat.mainData.map((item) =>
+                    item.id === chartId ? { ...item, chartType: newChartType } : item,
+                  ),
+                };
+              }
+              return cat;
+            }),
+          );
+        }
 
         console.log(`Chart ${chartId} updated to ${newChartType}`);
       } catch (error) {
@@ -421,7 +424,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         setChartEdit(undefined);
       }
     },
-    [dashboardId, userId, accessToken, setChartData],
+    [combinedData, setCombinedData, setLocalDashboardData, updateChartType],
   );
 
   const breakpointColumnsObj = {
@@ -439,7 +442,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         checkedType,
       );
     }
-  }, [editMode, checkedIds, categoryEdit, checkedType]);
+  }, [editMode, checkedIds, categoryEdit, checkedType, getEditMode]);
 
   return (
     <div className="mt-5 flex w-full justify-center">
@@ -467,6 +470,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                   title={numberCatcher(document.categoryName)}
                   className={classNames('relative h-full w-full shrink-0')}
                 >
+                  {/* Render Individual Charts */}
                   {document.mainData
                     .filter(
                       (items) =>
@@ -477,7 +481,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                     .map((items: IndexedEntries) => (
                       <div className="my-2 flex items-center justify-between gap-3" key={items.id}>
                         {items.data && items.data.length <= 1 && (
-                          <h1 className={`flex  flex-col text-lg font-bold `}>
+                          <h1 className={`flex flex-col text-lg font-bold `}>
                             {items.data[0]?.title}:
                           </h1>
                         )}
@@ -486,7 +490,9 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                           <div className="relative h-fit w-full transition-all duration-300 ease-in-out">
                             {editMode === true && categoryEdit === document.categoryName && (
                               <div
-                                onDrop={(event) => handleDrop(event, items.id)}
+                                onDrop={(event) =>
+                                  handleDrop(event, document.categoryName, items.id)
+                                }
                                 onDragOver={(e) => e.preventDefault()}
                                 className="absolute z-50 w-full"
                               >
@@ -511,9 +517,9 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                               categoryEdit === document.categoryName) &&
                               editMode === true && (
                                 <div
-                                  onDrop={(event) => {
-                                    handleDrop(event, items.id);
-                                  }}
+                                  onDrop={(event) =>
+                                    handleDrop(event, document.categoryName, items.id)
+                                  }
                                   className="absolute z-20 h-full w-full"
                                   onDragOver={(e) => e.preventDefault()}
                                   onDragEnd={() => setIsDraggingOver(false)}
@@ -530,10 +536,10 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                 'h-30 w-full': !editMode,
                                 'w-[90%] overflow-hidden': editMode,
                               })}
-                              onDragOver={(e) => handleDragOver(items.id, e)}
+                              onDragOver={(e) => handleDragOver(document.categoryName, items.id, e)}
                             >
                               {!isDraggingOver && items.id !== chartEdit && (
-                                <h1 className={`mb-1 flex  flex-col text-[16px] font-bold `}>
+                                <h1 className={`mb-1 flex flex-col text-[16px] font-bold `}>
                                   {items.data[0]?.title}:
                                 </h1>
                               )}
@@ -569,10 +575,18 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                       </div>
                     ))}
 
+                  {/* Render Combined Charts */}
                   {combinedData[document.categoryName] &&
                     combinedData[document.categoryName].map((combinedChart: CombinedChart) => (
                       <div key={combinedChart.id} className="mb-4 flex items-center">
-                        <div className="relative flex w-full justify-between transition-all duration-300 ease-in-out">
+                        <div
+                          className="relative flex w-full justify-between transition-all duration-300 ease-in-out"
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(event) =>
+                            handleDrop(event, document.categoryName, combinedChart.id)
+                          }
+                        >
+                          {/* Overlay for Combined Charts */}
                           {(isDraggingOver || categoryEdit === document.categoryName) &&
                             editMode === true && (
                               <>
@@ -609,31 +623,23 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                                       </div>
                                     ))}
                                 </div>
-                                <div
-                                  onDrop={(event) => {
-                                    setIsDraggingOver(false);
-                                  }}
-                                  onDragOver={(e) => e.preventDefault()}
-                                  onDragEnd={() => setIsDraggingOver(false)}
-                                >
-                                  <ChartOverlay>
-                                    <div className="flex items-center gap-3">
-                                      <input
-                                        type="checkbox"
-                                        className="h-5 w-5"
-                                        checked={checkedIds[document.categoryName]?.includes(
-                                          combinedChart.id,
-                                        )}
-                                        onChange={() =>
-                                          handleCheck(document.categoryName, '', combinedChart.id)
-                                        }
-                                      />
-                                      {categoryEdit === document.categoryName
-                                        ? 'Change Chart Type'
-                                        : 'Change Chart Type'}
-                                    </div>
-                                  </ChartOverlay>
-                                </div>
+                                <ChartOverlay>
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="checkbox"
+                                      className="h-5 w-5"
+                                      checked={checkedIds[document.categoryName]?.includes(
+                                        combinedChart.id,
+                                      )}
+                                      onChange={() =>
+                                        handleCheck(document.categoryName, '', combinedChart.id)
+                                      }
+                                    />
+                                    {categoryEdit === document.categoryName
+                                      ? 'Change Chart Type'
+                                      : 'Change Chart Type'}
+                                  </div>
+                                </ChartOverlay>
                               </>
                             )}
 
@@ -678,6 +684,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                       </div>
                     ))}
 
+                  {/* Render Combined Charts Selection if >=2 checked */}
                   {document.mainData.filter((items) =>
                     checkedIds[document.categoryName]?.includes(items.id),
                   ).length >= 2 && (
@@ -710,19 +717,11 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
                         </div>
                         {(isDraggingOver || categoryEdit === document.categoryName) &&
                           editMode === true && (
-                            <div
-                              onDrop={(event) => {
-                                setIsDraggingOver(false);
-                              }}
-                              onDragOver={(e) => e.preventDefault()}
-                              onDragEnd={() => setIsDraggingOver(false)}
-                            >
-                              <ChartOverlay>
-                                {categoryEdit === document.categoryName
-                                  ? 'Change Chart'
-                                  : 'Change Chart'}
-                              </ChartOverlay>
-                            </div>
+                            <ChartOverlay>
+                              {categoryEdit === document.categoryName
+                                ? 'Change Chart'
+                                : 'Change Chart'}
+                            </ChartOverlay>
                           )}
 
                         <div

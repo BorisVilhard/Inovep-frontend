@@ -16,6 +16,7 @@ export const getDataType = (
       return combinedData;
     case 'EntryArea':
     case 'EntryLine':
+    case 'TradingLine':
     case 'Bar':
       return itemsData;
     default:

@@ -1,5 +1,7 @@
+// store/useAuthStore.js
 import create from 'zustand';
-import { persist, PersistOptions } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
+import jwt_decode from 'jwt-decode';
 
 type AuthState = {
   id: string | null;
@@ -11,13 +13,14 @@ type AuthState = {
 type AuthActions = {
   setCredentials: (id: string, username: string, email: string, accessToken: string | null) => void;
   logOut: () => void;
+  refreshAccessToken: () => Promise<void>;
 };
 
 type AuthStore = AuthState & AuthActions;
 
 const useAuthStore = create<AuthStore>()(
-  persist<AuthStore>(
-    (set) => ({
+  persist(
+    (set, get) => ({
       id: null,
       username: null,
       email: null,
@@ -26,27 +29,46 @@ const useAuthStore = create<AuthStore>()(
       setCredentials: (id, username, email, accessToken) =>
         set({ id, username, email, accessToken }),
 
-      logOut: () => {
-        fetch('http://localhost:3500/logout', {
-          method: 'GET',
-          credentials: 'include',
-        })
-          .then((response) => {
-            if (response.ok) {
-              set({ id: null, username: null, email: null, accessToken: null });
-            } else {
-              console.error('Failed to log out');
-            }
-          })
-          .catch((error) => {
-            console.error('Logout error:', error);
+      logOut: async () => {
+        try {
+          const response = await fetch('http://localhost:3500/logout', {
+            method: 'GET',
+            credentials: 'include',
           });
+          if (response.ok) {
+            set({ id: null, username: null, email: null, accessToken: null });
+          } else {
+            console.error('Failed to log out');
+          }
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+      },
+
+      refreshAccessToken: async () => {
+        try {
+          const response = await fetch('http://localhost:3500/refresh-token', {
+            method: 'GET',
+            credentials: 'include',
+          });
+          if (response.ok) {
+            const data = await response.json();
+            set({ accessToken: data.accessToken });
+          } else {
+            set({ id: null, username: null, email: null, accessToken: null });
+            window.location.href = '/auth/login';
+          }
+        } catch (error) {
+          console.error('Failed to refresh access token:', error);
+          set({ id: null, username: null, email: null, accessToken: null });
+          window.location.href = '/auth/login';
+        }
       },
     }),
     {
       name: 'auth-storage',
       getStorage: () => localStorage,
-    } as PersistOptions<AuthStore>,
+    },
   ),
 );
 

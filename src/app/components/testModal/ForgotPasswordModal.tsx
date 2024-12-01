@@ -5,10 +5,11 @@ import * as zod from 'zod';
 import axios from 'axios';
 import Button from '../Button/Button';
 import InputField from '../Fields/InputField/InputField';
-import { showFlashMessage } from '../FlashMessgae/FlashMessage';
+
 import Modal from '../Modal';
 import CodeInputField from '../Fields/CodeInputField/CodeInputField';
 import PasswordChecker from '../../../../utils/PasswordChecker';
+import { toast } from 'react-toastify';
 
 interface ForgotPasswordProps {
   isOpen: boolean;
@@ -73,7 +74,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordProps> = ({ isOpen, onRequestC
         { email: data.email },
         { withCredentials: true },
       );
-      showFlashMessage(response.data.message, 'success');
+      toast.success(response.data.message);
       setEmail(data.email);
       setStep('verify');
     } catch (error: any) {
@@ -81,7 +82,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordProps> = ({ isOpen, onRequestC
         axios.isAxiosError(error) && error.response?.data.message
           ? error.response.data.message
           : 'An error occurred while sending the verification code.';
-      showFlashMessage(errorMessage, 'error');
+      toast.error(errorMessage);
     }
   };
 
@@ -92,7 +93,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordProps> = ({ isOpen, onRequestC
         { email, code: data.code },
         { withCredentials: true },
       );
-      showFlashMessage(response.data.message, 'success');
+      toast.success(response.data.message);
       setVerificationCode(data.code);
       setStep('reset');
     } catch (error: any) {
@@ -100,7 +101,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordProps> = ({ isOpen, onRequestC
         axios.isAxiosError(error) && error.response?.data.message
           ? error.response.data.message
           : 'An error occurred while verifying the code.';
-      showFlashMessage(errorMessage, 'error');
+      toast.error(errorMessage);
     }
   };
 
@@ -115,14 +116,14 @@ const ForgotPasswordModal: React.FC<ForgotPasswordProps> = ({ isOpen, onRequestC
         },
         { withCredentials: true },
       );
-      showFlashMessage(response.data.message, 'success');
+      toast.success(response.data.message);
       closeModal();
     } catch (error: any) {
       const errorMessage =
         axios.isAxiosError(error) && error.response?.data.message
           ? error.response.data.message
           : 'An error occurred while resetting the password.';
-      showFlashMessage(errorMessage, 'error');
+      toast.error(errorMessage);
     }
   };
 

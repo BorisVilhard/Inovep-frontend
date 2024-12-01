@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { useCallback } from 'react';
-import { showFlashMessage } from '@/app/components/FlashMessgae/FlashMessage';
+import { toast } from 'react-toastify';
 import { useRouter } from 'next/navigation';
 import { LoginFormValues } from '../LoginForm/LoginForm';
 import useAuthStore from './userReponse';
@@ -26,12 +26,11 @@ const useLogin = () => {
         if (response.status >= 200 && response.status < 300) {
           const { id, username, email, accessToken } = response.data;
           store.setCredentials(id, username, email, accessToken);
-          showFlashMessage(`Welcome ${username}!`, 'success');
+          toast.success(`Welcome ${username}!`);
           router.push('/dashboard');
         }
       } catch (error) {
-        console.error('Login error:', error);
-        showFlashMessage('Login failed. Please check your credentials.', 'error');
+        toast.error('Login failed. Please check your credentials.');
       }
     },
     [router, store],

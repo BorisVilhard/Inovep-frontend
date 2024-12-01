@@ -12,7 +12,7 @@ type Props = {
   imageUrl: string;
   imageWidth?: number;
   imageHeight?: number;
-  dataType?: 'entry' | 'index' | undefined;
+  dataType?: 'entry' | 'index';
 };
 
 export const AccordionItem: React.FC<Props> = ({
@@ -35,7 +35,7 @@ export const AccordionItem: React.FC<Props> = ({
     dragCopy.style.display = 'flex';
     dragCopy.style.alignItems = 'center';
     dragCopy.style.justifyContent = 'center';
-    dragCopy.innerHTML = ReactDOMServer.renderToStaticMarkup(<a>{title}</a>);
+    dragCopy.innerHTML = ReactDOMServer.renderToStaticMarkup(<span>{title}</span>); // Changed <a> to <span>
     document.body.appendChild(dragCopy);
     event.dataTransfer.setDragImage(dragCopy, 0, 0);
   };
@@ -47,7 +47,7 @@ export const AccordionItem: React.FC<Props> = ({
     }
   };
 
-  const assignedDataType = () => {
+  const assignedDataType = (): 'entry' | 'index' => {
     switch (type) {
       case 'Pie':
       case 'Radar':
@@ -58,6 +58,7 @@ export const AccordionItem: React.FC<Props> = ({
       case 'EntryArea':
       case 'EntryLine':
       case 'Bar':
+      case 'TradingLine':
         return 'entry';
       default:
         return 'entry';
@@ -66,18 +67,17 @@ export const AccordionItem: React.FC<Props> = ({
 
   return (
     <div
-      onClick={dataType === 'entry' || 'index' ? () => setChartData(type) : () => {}}
+      onClick={dataType === 'entry' || dataType === 'index' ? () => setChartData(type) : () => {}}
       onDragStart={dragStartHandler}
       onDragEnd={dragEndHandler}
-      draggable={dataType === undefined}
+      draggable={dataType !== undefined && dataType === assignedDataType()} // Corrected logic
       className={classNames(
-        'relative flex h-[120px] w-[170px] flex-col items-center  justify-between  rounded-md border-2 border-solid border-gray-700  bg-gray-700',
+        'relative flex h-[120px] w-[170px] flex-col items-center justify-between rounded-md border-2 border-solid border-gray-700 bg-gray-700',
         {
-          'cursor-grab': dataType === undefined,
-          'cursor-pointer  hover:border-primary-90':
-            dataType === ('entry' || 'index') && assignedDataType() === dataType,
-          'cursor-default border-gray-700 ':
-            assignedDataType() !== dataType && dataType !== undefined,
+          'cursor-grab': dataType !== undefined && dataType === assignedDataType(),
+          'cursor-pointer hover:border-primary-90': dataType === 'entry' || dataType === 'index',
+          'cursor-not-allowed border-gray-700 ':
+            dataType !== undefined && dataType !== assignedDataType(),
         },
       )}
     >
@@ -89,13 +89,12 @@ export const AccordionItem: React.FC<Props> = ({
           </span>
         </div>
       )}
-
-      <a className="mt-[10px] text-[15px]">{title}</a>
+      <span className="mt-[10px] text-[15px]">{title}</span>
       <Image
         src={imageUrl}
         width={imageWidth ? imageWidth : 100}
         height={imageHeight ? imageHeight : 100}
-        alt="profile"
+        alt="chart-icon"
         className="mb-[20px]"
       />
     </div>
