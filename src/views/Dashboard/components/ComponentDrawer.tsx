@@ -9,7 +9,7 @@ interface Props {
 
 const ComponentDrawer = (props: Props) => {
   const { type } = useStore();
-  console.log(type);
+
   return (
     <Drawer isOpened={(e) => props.isOpen(e)}>
       <Accordion

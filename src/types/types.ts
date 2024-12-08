@@ -1,5 +1,3 @@
-// types/types.ts
-
 export type ChartType =
   | 'EntryArea'
   | 'IndexArea'

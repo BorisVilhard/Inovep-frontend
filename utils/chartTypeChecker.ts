@@ -1,7 +1,7 @@
 // helper.ts
 
 // Import necessary types
-import { CombinedChart } from '@/types/types';
+import { CombinedChart, ChartType } from '@/types/types';
 
 // Define supported chart types with literal types
 export const SUPPORTED_CHART_TYPES = {
@@ -43,4 +43,28 @@ export const findCategoryForChartId = (
  */
 export const isCombinedChart = (chartId: string, combinedData: CombinedData): boolean => {
   return !!findCategoryForChartId(chartId, combinedData);
+};
+
+/**
+ * Validates whether a chart type is supported for the given chart.
+ *
+ * @param chartType - The new chart type to apply.
+ * @param chartId - The ID of the chart being modified.
+ * @param combinedData - The combinedData object containing all combined charts.
+ * @returns True if the chart type is valid for the chart; otherwise, false.
+ */
+export const isValidChartType = (
+  chartType: ChartType,
+  chartId: string,
+  combinedData: CombinedData,
+): boolean => {
+  if (isCombinedChart(chartId, combinedData)) {
+    return SUPPORTED_CHART_TYPES.combined.includes(
+      chartType as (typeof SUPPORTED_CHART_TYPES.combined)[number],
+    );
+  } else {
+    return SUPPORTED_CHART_TYPES.individual.includes(
+      chartType as (typeof SUPPORTED_CHART_TYPES.individual)[number],
+    );
+  }
 };

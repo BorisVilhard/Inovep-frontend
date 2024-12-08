@@ -4,7 +4,7 @@ import DataBar from './features/DataBar';
 import { ChartType, DashboardCategory, DocumentData, Entry, CombinedChart } from '@/types/types';
 import { useAggregateData } from '../../../utils/aggregateData';
 import ComponentDrawer from './components/ComponentDrawer';
-import ChartPanel from './features/ChartPanel';
+
 import NoDataPanel from './features/NoDataPanel';
 import axios from 'axios';
 import useStore from '../auth/api/userReponse';
@@ -17,6 +17,7 @@ import Dropdown from '@/app/components/Dropdown/Dropdown';
 import DataDifferenceModal from '@/app/components/testModal/DataDifferenceModal';
 import Loading from '@/app/loading';
 import { useUpdateChartStore } from '../../../utils/updateChart';
+import ChartPanel from './features/ChartPanel';
 
 const DashboardFormSchema = zod.object({
   dashboardData: zod.array(

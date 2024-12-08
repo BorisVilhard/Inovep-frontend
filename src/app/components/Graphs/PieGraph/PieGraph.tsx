@@ -28,11 +28,19 @@ const PieGraph: FC<Props> = ({ data, titleColors }) => {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  const formattedData = data.map((entry) => ({
-    ...entry,
-    date: entry.date ? formatDate(entry.date) : entry.date,
-    value: typeof entry.value === 'number' ? Math.round(entry.value * 100) / 100 : 0,
-  }));
+  const formattedData = Object.values(
+    data.reduce((acc: Record<string, { title: string; value: number }>, entry) => {
+      const title = entry.title;
+      const value = typeof entry.value === 'number' ? entry.value : 0;
+
+      if (!acc[title]) {
+        acc[title] = { title, value: 0 };
+      }
+      acc[title].value += value;
+
+      return acc;
+    }, {}),
+  );
 
   const chartWidth = dimensions.width || 300;
   const chartHeight = dimensions.height || 200;

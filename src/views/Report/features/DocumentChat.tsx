@@ -7,6 +7,7 @@ import { MdOutlineAttachFile } from 'react-icons/md';
 import axios from 'axios';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
 import useAuthStore from '@/views/auth/api/userReponse';
+import Test2 from '@/app/components/Test2';
 
 const generateId = () => `id-${Date.now()}-${Math.random()}`;
 
@@ -397,6 +398,7 @@ function DocumentChat() {
           </section>
         </div>
       </div>
+      <Test2 />
     </main>
   );
 }
