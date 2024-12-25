@@ -47,3 +47,17 @@ export interface DocumentData {
   dashboardData: DashboardCategory[];
   files: { filename: string; content: any }[];
 }
+
+export interface AccordionItemData {
+  imageUrl: string;
+  imageHeight?: number;
+  imageWidth?: number;
+  type: string;
+  title: string;
+  dataType: string;
+}
+
+export interface AccordionSection {
+  name: string;
+  items: AccordionItemData[];
+}

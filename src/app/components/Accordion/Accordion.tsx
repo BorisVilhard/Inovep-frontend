@@ -97,7 +97,7 @@ const AccordionItem: FC<AccordionItemProps> = ({ name, children }) => {
   }, [name, register]);
 
   const contentStyle = {
-    maxHeight: visibleItems[name] ? '1000px' : '0', // Adjust this value based on content
+    maxHeight: visibleItems[name] ? '1000px' : '0',
     overflow: 'hidden',
     transition: 'max-height 200ms ease-in-out, opacity 200ms ease-in-out',
     opacity: visibleItems[name] ? 1 : 0,

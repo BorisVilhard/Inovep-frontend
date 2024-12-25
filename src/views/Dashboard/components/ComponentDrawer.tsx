@@ -1,78 +1,55 @@
+'use client';
+import React from 'react';
 import Accordion from '@/app/components/Accordion/Accordion';
-import { AccordionItem } from './AccordionIten';
+import { AccordionItem } from './AccordionItem';
 import Drawer from '@/app/components/Drawer/Drawer';
 import { useStore } from '../../../../utils/editModeStore';
+import { ChartType } from '@/types/types';
 
-interface Props {
+export type AccordionGroup = {
+  name: string;
+  items: Array<{
+    type: ChartType;
+    title: string;
+    imageUrl: string;
+    imageWidth?: number;
+    imageHeight?: number;
+  }>;
+};
+
+type Props = {
   isOpen: (open: boolean) => void;
-}
+  accordionItems: AccordionGroup[];
+};
 
-const ComponentDrawer = (props: Props) => {
+const ComponentDrawer: React.FC<Props> = ({ accordionItems, isOpen }) => {
   const { type } = useStore();
 
+  const accordionData = accordionItems.map((group) => ({
+    name: group.name,
+    content: (
+      <div className="flex flex-col gap-[20px]">
+        {group.items.map((item) => (
+          <AccordionItem
+            key={item.type}
+            type={item.type}
+            title={item.title}
+            imageUrl={item.imageUrl}
+            imageWidth={item.imageWidth}
+            imageHeight={item.imageHeight}
+            dataType={type}
+          />
+        ))}
+      </div>
+    ),
+  }));
+
   return (
-    <Drawer isOpened={(e) => props.isOpen(e)}>
+    <Drawer isOpened={isOpen}>
       <Accordion
         mode="single"
-        defaultOpen={['Line Charts']}
-        items={[
-          {
-            name: 'Line Charts',
-            content: (
-              <div className="flex flex-col gap-[20px]">
-                <AccordionItem
-                  imageUrl={'/img/charts/line.png'}
-                  type={'EntryArea'}
-                  title={'Line'}
-                  dataType={type}
-                />
-                <AccordionItem
-                  imageUrl={'/img/charts/IndexLine.png'}
-                  type={'IndexLine'}
-                  title={'Multiple Line Chart'}
-                  dataType={type}
-                />
-                <AccordionItem
-                  imageUrl={'/img/charts/trading.png'}
-                  imageHeight={70}
-                  imageWidth={70}
-                  type={'TradingLine'}
-                  title={'Trading Chart'}
-                  dataType={type}
-                />
-              </div>
-            ),
-          },
-          {
-            name: 'Others',
-            content: (
-              <div className="flex flex-col gap-[20px]">
-                <AccordionItem
-                  imageHeight={50}
-                  imageWidth={50}
-                  imageUrl={'/img/charts/Bar.png'}
-                  dataType={type}
-                  title={'Bar Chart'}
-                  type={type === 'entry' ? 'Bar' : 'IndexBar'}
-                />
-                <AccordionItem
-                  imageHeight={60}
-                  imageWidth={60}
-                  imageUrl={'/img/charts/Pie.png'}
-                  type={'Pie'}
-                  title={'Pie'}
-                  dataType={type}
-                />
-                <AccordionItem
-                  dataType={type}
-                  imageUrl={'/img/charts/Pie2.png'}
-                  type={'Radar'}
-                  title={'Radar'}
-                />
-              </div>
-            ),
-          },
-        ]}
+        defaultOpen={[accordionData[0]?.name]} // Adjust as needed
+        items={accordionData}
       />
     </Drawer>
   );

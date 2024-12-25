@@ -4,7 +4,6 @@ import DataBar from './features/DataBar';
 import { ChartType, DashboardCategory, DocumentData, Entry, CombinedChart } from '@/types/types';
 import { useAggregateData } from '../../../utils/aggregateData';
 import ComponentDrawer from './components/ComponentDrawer';
-
 import NoDataPanel from './features/NoDataPanel';
 import axios from 'axios';
 import useStore from '../auth/api/userReponse';
@@ -18,6 +17,10 @@ import DataDifferenceModal from '@/app/components/testModal/DataDifferenceModal'
 import Loading from '@/app/loading';
 import { useUpdateChartStore } from '../../../utils/updateChart';
 import ChartPanel from './features/ChartPanel';
+import { accordionItemsData } from './data/AccordionItems';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { CustomDragLayer } from '@/app/components/CustomLayer/CustomLayer';
 
 const DashboardFormSchema = zod.object({
   dashboardData: zod.array(
@@ -542,88 +545,90 @@ const Dashboard = () => {
   }, [aggregateData, combinedData, checkedIds, currentCategory]);
 
   return (
-    <div className="relative flex h-full w-full flex-col items-center justify-center bg-white">
-      <ComponentDrawer isOpen={setEditMode} />
-
-      <DataDifferenceModal
-        isOpen={isDifferenceModalOpen}
-        onClose={discardPendingData}
-        differences={differenceData}
-        onOk={applyPendingData}
-        isUploading={isUploading}
-      />
-
-      <DashboardNameModal
-        isOpen={isEditDashboardModalOpen}
-        onClose={() => {
-          setIsEditDashboardModalOpen(false);
-          setDashboardToEdit(null);
-        }}
-        onSubmit={handleDashboardNameUpdate}
-        existingDashboardNames={existingDashboardNames || []}
-        initialName={dashboardToEdit?.dashboardName}
-      />
-      <ConfirmationModal
-        isOpen={isDeleteDashboardModalOpen}
-        onClose={() => {
-          setIsDeleteDashboardModalOpen(false);
-          setDashboardToDelete(null);
-        }}
-        onConfirm={handleDeleteDashboard}
-        title="Delete Dashboard"
-        message={`Are you sure you want to delete the dashboard "${dashboardToDelete?.dashboardName}"? This action cannot be undone.`}
-      />
-
-      <Dropdown
-        type="secondary"
-        size="large"
-        items={
-          dashboards &&
-          dashboards.map((dashboard) => ({
-            id: dashboard._id,
-            name: dashboard.dashboardName,
-          }))
-        }
-        onSelect={handleDashboardSelect}
-        selectedId={dashboardId}
-        onEdit={handleEditClick}
-        onDelete={handleDeleteClick}
-      />
-      <DataBar
-        getFileName={setFileName}
-        isLoading={setLoading}
-        getData={handleNewData}
-        dashboardId={dashboardId}
-        files={files}
-        existingDashboardNames={dashboards && dashboards.map((d) => d.dashboardName)}
-        onCreateDashboard={handleNewDashboard}
-        existingDashboardData={dashboardData ? dashboardData.dashboardData : []}
-        onDataDifferencesDetected={handleDataDifferencesDetected}
-      />
-
-      {isLoading ? (
-        <div className="relative h-[65vh]">
-          <Loading />
-        </div>
-      ) : categories && categories.length > 0 ? (
-        <ChartPanel
-          dashboardId={dashboardId || ''}
-          fileName={fileName}
-          editMode={editMode}
-          dashboardData={categories ?? []}
-          getCheckIds={setCheckedIds}
-          getCategoryEdit={setCurrentCategory}
-          summaryData={summaryData}
-          combinedData={combinedData}
-          setCombinedData={setCombinedData}
-          appliedChartTypes={appliedChartTypes}
-          checkedIds={checkedIds}
-          deleteDataByFileName={deleteDataByFileName}
+    <DndProvider backend={HTML5Backend}>
+      <div className="relative flex h-full w-full flex-col items-center justify-center bg-white">
+        <ComponentDrawer accordionItems={accordionItemsData()} isOpen={setEditMode} />
+        <DataDifferenceModal
+          isOpen={isDifferenceModalOpen}
+          onClose={discardPendingData}
+          differences={differenceData}
+          onOk={applyPendingData}
+          isUploading={isUploading}
         />
-      ) : (
-        <NoDataPanel />
-      )}
-    </div>
+
+        <DashboardNameModal
+          isOpen={isEditDashboardModalOpen}
+          onClose={() => {
+            setIsEditDashboardModalOpen(false);
+            setDashboardToEdit(null);
+          }}
+          onSubmit={handleDashboardNameUpdate}
+          existingDashboardNames={existingDashboardNames || []}
+          initialName={dashboardToEdit?.dashboardName}
+        />
+        <ConfirmationModal
+          isOpen={isDeleteDashboardModalOpen}
+          onClose={() => {
+            setIsDeleteDashboardModalOpen(false);
+            setDashboardToDelete(null);
+          }}
+          onConfirm={handleDeleteDashboard}
+          title="Delete Dashboard"
+          message={`Are you sure you want to delete the dashboard "${dashboardToDelete?.dashboardName}"? This action cannot be undone.`}
+        />
+
+        <Dropdown
+          type="secondary"
+          size="large"
+          items={
+            dashboards &&
+            dashboards.map((dashboard) => ({
+              id: dashboard._id,
+              name: dashboard.dashboardName,
+            }))
+          }
+          onSelect={handleDashboardSelect}
+          selectedId={dashboardId}
+          onEdit={handleEditClick}
+          onDelete={handleDeleteClick}
+        />
+        <DataBar
+          getFileName={setFileName}
+          isLoading={setLoading}
+          getData={handleNewData}
+          dashboardId={dashboardId}
+          files={files}
+          existingDashboardNames={dashboards && dashboards.map((d) => d.dashboardName)}
+          onCreateDashboard={handleNewDashboard}
+          existingDashboardData={dashboardData ? dashboardData.dashboardData : []}
+          onDataDifferencesDetected={handleDataDifferencesDetected}
+        />
+
+        {isLoading ? (
+          <div className="relative h-[65vh]">
+            <Loading />
+          </div>
+        ) : categories && categories.length > 0 ? (
+          <ChartPanel
+            dashboardId={dashboardId || ''}
+            fileName={fileName}
+            editMode={editMode}
+            dashboardData={categories ?? []}
+            getCheckIds={setCheckedIds}
+            getCategoryEdit={setCurrentCategory}
+            summaryData={summaryData}
+            combinedData={combinedData}
+            setCombinedData={setCombinedData}
+            appliedChartTypes={appliedChartTypes}
+            checkedIds={checkedIds}
+            deleteDataByFileName={deleteDataByFileName}
+          />
+        ) : (
+          <NoDataPanel />
+        )}
+      </div>
+      <CustomDragLayer />
+    </DndProvider>
   );
 };
 
