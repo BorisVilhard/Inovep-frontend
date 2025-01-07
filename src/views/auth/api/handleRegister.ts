@@ -2,7 +2,7 @@ import axios from 'axios';
 import { RegisterFormValues } from '../RegisterForm/RegisterForm';
 import { useCallback } from 'react';
 import useStore from './userReponse';
-import { showFlashMessage } from '@/app/components/FlashMessgae/FlashMessage';
+import { toast } from 'react-toastify';
 import { useRouter } from 'next/navigation';
 
 const useRegister = () => {
@@ -32,7 +32,7 @@ const useRegister = () => {
         if (response.status === 200 || 201) {
           const { id, username, email, accessToken } = response.data;
           store.setCredentials(id, username, email, accessToken);
-          showFlashMessage(`Welcome ${username}!`, 'success');
+          toast.success(`Welcome ${username}!`);
           router.push('/dashboard');
         }
       } catch (error) {

@@ -1,24 +1,24 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import Button from '@/app/components/Button/Button';
-import { MdOutlineAttachFile } from 'react-icons/md';
-
 import axios from 'axios';
+
+import Button from '@/app/components/Button/Button';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
+import Test3 from '@/app/components/testModal/Test3';
+
 import useAuthStore from '@/views/auth/api/userReponse';
-import Test2 from '@/app/components/Test2';
-import DraggingExample from '@/app/components/DraggingExample';
+import ChatMessages from './features/ChatMessages';
+import ChatSidebar from './features/ChatSidebar';
+import { generateId } from './utils/generateId';
 
-const generateId = () => `id-${Date.now()}-${Math.random()}`;
-
-interface Message {
+export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
-interface Chat {
+export interface Chat {
   _id: string;
   createdAt: string;
   dashboardId: string;
@@ -28,14 +28,14 @@ interface Chat {
 }
 
 function DocumentChat() {
-  const [chatId, setChatId] = useState<string | null>(null); // Current chat ID
+  const [chatId, setChatId] = useState<string | null>(null);
   const { id: userId, accessToken } = useAuthStore();
-  const [messages, setMessages] = useState<Message[]>([]); // Chat messages
-  const [input, setInput] = useState<string>(''); // Current input
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState<string>('');
   const chatParent = useRef<HTMLUListElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [chats, setChats] = useState<Chat[]>([]); // List of chats
-  const [fileContent, setFileContent] = useState<string>(''); // File content of the selected chat
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [fileContent, setFileContent] = useState<string>('');
   const [dashboards, setDashboards] = useState<DropdownItem[]>([]);
   const [selectedDashboard, setSelectedDashboard] = useState<{ id: string; name: string } | null>(
     null,
@@ -49,7 +49,6 @@ function DocumentChat() {
     }
   }, [messages]);
 
-  // Fetch dashboards on component mount
   useEffect(() => {
     const fetchDashboards = async () => {
       try {
@@ -67,11 +66,9 @@ function DocumentChat() {
           }));
           setDashboards(dashboardItems);
 
-          // Set default selected dashboard to the last one
           if (dashboardItems.length > 0) {
             const defaultDashboard = dashboardItems[dashboardItems.length - 1];
             setSelectedDashboard(defaultDashboard);
-            // Call handleDashboardSelect with the default dashboard id
             handleDashboardSelect(defaultDashboard.id);
           }
         } else if (response.status === 204) {
@@ -87,7 +84,6 @@ function DocumentChat() {
     fetchDashboards();
   }, [userId, accessToken]);
 
-  // Fetch chats on component mount
   useEffect(() => {
     const fetchChats = async () => {
       try {
@@ -98,7 +94,7 @@ function DocumentChat() {
         });
 
         if (response && response.status === 200) {
-          setChats(response.data); // Update the chats state
+          setChats(response.data);
         } else if (response.status === 204) {
           console.log('No chats found');
         } else {
@@ -112,13 +108,11 @@ function DocumentChat() {
     fetchChats();
   }, [userId, accessToken]);
 
-  // Handle dashboard selection
   const handleDashboardSelect = async (dashboardId: string) => {
     const dashboard = dashboards.find((d) => d.id === dashboardId);
     if (dashboard) {
       setSelectedDashboard(dashboard);
 
-      // Fetch the dashboard data
       try {
         const response = await axios.get(
           `http://localhost:3500/data/users/${userId}/dashboard/${dashboardId}`,
@@ -131,38 +125,15 @@ function DocumentChat() {
 
         if (response && response.status === 200) {
           setDashboardData(response.data.dashboardData);
-          console.log('Dashboard data loaded:', response.data.dashboardData);
 
-          // Check if a chat already exists with this dashboard
           const existingChat = chats.find((chat) => chat.dashboardId === dashboardId);
 
           if (existingChat) {
-            // Load the existing chat data directly
-            try {
-              const chatResponse = await axios.get(
-                `http://localhost:3500/chat/users/${userId}/chats/${existingChat._id}`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                  },
-                },
-              );
-
-              if (chatResponse && chatResponse.status === 200) {
-                const chatData = chatResponse.data;
-                setChatId(chatData._id);
-                setMessages(chatData.messages);
-                setFileContent(chatData.fileContent || '');
-              } else {
-                console.error('Failed to load chat:', chatResponse?.data);
-              }
-            } catch (error: any) {
-              console.error('Error loading chat:', error);
-            }
+            loadChatData(existingChat._id);
           } else {
-            // Reset messages and chatId for a new chat
             setMessages([]);
             setChatId(null);
+            setFileContent('');
           }
         } else {
           console.error('Failed to load dashboard data:', response?.data);
@@ -173,8 +144,11 @@ function DocumentChat() {
     }
   };
 
-  // Handle chat selection
   const handleChatSelection = async (selectedChatId: string) => {
+    await loadChatData(selectedChatId);
+  };
+
+  const loadChatData = async (selectedChatId: string) => {
     try {
       const response = await axios.get(
         `http://localhost:3500/chat/users/${userId}/chats/${selectedChatId}`,
@@ -195,7 +169,6 @@ function DocumentChat() {
           name: chatData.dashboardName,
         });
 
-        // Fetch the dashboard data directly
         if (chatData.dashboardId) {
           try {
             const dashboardResponse = await axios.get(
@@ -217,8 +190,6 @@ function DocumentChat() {
             console.error('Error loading dashboard data:', error);
           }
         }
-
-        console.log('Chat loaded:', chatData);
       } else {
         console.error('Failed to load chat:', response?.data);
       }
@@ -227,12 +198,10 @@ function DocumentChat() {
     }
   };
 
-  // Handle input change
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInput(event.target.value);
   };
 
-  // Handle file selection
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -240,7 +209,6 @@ function DocumentChat() {
     }
   };
 
-  // Handle form submission
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -254,25 +222,22 @@ function DocumentChat() {
       return;
     }
 
-    // Create user message
     const userMessage: Message = {
       id: generateId(),
       role: 'user',
       content: input,
     };
 
-    // Append user message to chat
     setMessages((prevMessages) => [...prevMessages, userMessage]);
 
-    let payload: any = {
-      messages: [userMessage], // Sending only the new message
+    const payload: any = {
+      messages: [userMessage],
       dashboardId: selectedDashboard.id,
       dashboardName: selectedDashboard.name,
       dashboardData: dashboardData,
     };
 
     try {
-      // Send message (create chat if it doesn't exist)
       const response = await axios.post(
         `http://localhost:3500/chat/users/${userId}/chats`,
         payload,
@@ -286,62 +251,34 @@ function DocumentChat() {
 
       if (response && response.status === 200) {
         const assistantContent = response.data.message;
-
         if (assistantContent) {
           const assistantMessage: Message = {
             id: generateId(),
             role: 'assistant',
             content: assistantContent.trim(),
           };
-          setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+          setMessages((prev) => [...prev, assistantMessage]);
         }
 
-        // Store chatId if returned (useful for deleting)
         if (!chatId && response.data.chatId) {
           setChatId(response.data.chatId);
-          // Fetch chats again to update the list
           setChats((prevChats) => [response.data.chat, ...prevChats]);
         }
       } else {
-        console.error('Failed to submit:', response?.data);
+        console.error('Failed to submit message:', response?.data);
       }
     } catch (error: any) {
       console.error('Error submitting form:', error);
     }
 
-    // Reset input and selected file
     setInput('');
     setSelectedFile(null);
   };
 
   return (
     <main className="flex h-full max-h-dvh w-full flex-col items-center justify-center">
-      <div className="flex w-full  justify-center ">
-        <aside className="hidden w-[25%] overflow-y-auto p-4 lg:block">
-          <div className=" rounded-t-2xl bg-gray-900 p-6">
-            <h2 className="mb-4 text-xl  font-bold text-white">Your Chats</h2>
-          </div>
-
-          <ul className=" h-[50vh] bg-neutral-10">
-            {chats.map((chat) => (
-              <li
-                key={chat._id}
-                className={`mb-2 cursor-pointer rounded p-2 ${
-                  chatId === chat._id ? 'bg-neutral-40' : 'bg-neutral-10'
-                }`}
-                onClick={() => handleChatSelection(chat._id)}
-              >
-                {chat.dashboardName ? (
-                  <>
-                    Dashboard: {chat.dashboardName} <br />
-                  </>
-                ) : null}
-                Chat ID: {chat._id.substring(0, 6)}... <br />
-                {new Date(chat.createdAt).toLocaleString()}
-              </li>
-            ))}
-          </ul>
-        </aside>
+      <div className="flex w-full justify-center">
+        <ChatSidebar chats={chats} currentChatId={chatId} onSelectChat={handleChatSelection} />
 
         <div className="w-full max-w-3xl">
           <section className="flex w-full flex-col items-center justify-start gap-7 rounded-t-2xl bg-gray-900 px-10 py-6">
@@ -355,6 +292,7 @@ function DocumentChat() {
                 selectedId={selectedDashboard?.id}
               />
             </header>
+
             <form
               onSubmit={handleFormSubmit}
               className="mx-auto flex w-full items-center gap-5 rounded-full bg-shades-white p-1"
@@ -367,39 +305,16 @@ function DocumentChat() {
                 value={input}
                 onChange={handleInputChange}
               />
+
               <Button type="secondary" className="ml-2" htmlType="submit">
                 Submit
               </Button>
             </form>
           </section>
 
-          <section className="container mx-auto mb-[100px] flex h-[50vh] max-w-3xl flex-grow flex-col gap-4 rounded-b-2xl bg-neutral-10 px-0 pb-10">
-            <ul
-              ref={chatParent}
-              className="flex h-1 flex-grow flex-col gap-4 overflow-y-auto rounded-lg p-4"
-            >
-              {messages.map((m, index) => (
-                <div key={index}>
-                  {m.role === 'user' ? (
-                    <li className="flex flex-row">
-                      <div className="bg-background flex rounded-xl bg-primary-90 p-4 text-shades-white shadow-md">
-                        <p className="text-primary">{m.content}</p>
-                      </div>
-                    </li>
-                  ) : (
-                    <li className="flex flex-row-reverse">
-                      <div className="bg-background flex w-3/4 rounded-xl bg-shades-white p-4 shadow-md">
-                        <p className="text-primary">{m.content}</p>
-                      </div>
-                    </li>
-                  )}
-                </div>
-              ))}
-            </ul>
-          </section>
+          <ChatMessages messages={messages} chatParentRef={chatParent} />
         </div>
       </div>
-      <DraggingExample />
     </main>
   );
 }

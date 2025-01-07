@@ -1,6 +1,15 @@
 import { Entry } from '@/types/types';
 import React, { useEffect, useRef, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { formatDate } from '../../../../../utils/format';
 
 interface Props {
   data: Entry[];
@@ -9,22 +18,6 @@ interface Props {
 const TradingLineChart = ({ data }: Props) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 250, height: 200 });
-
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (chartContainerRef.current) {
-        setDimensions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
-        });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
 
   const gradientOffset = () => {
     const dataMax = Math.max(...data.map((item) => Number(item.value)));
@@ -42,10 +35,16 @@ const TradingLineChart = ({ data }: Props) => {
 
   const off = gradientOffset();
 
+  const formattedData = data?.map((entry) => ({
+    ...entry,
+    date: formatDate(entry.date),
+    value: typeof entry.value === 'number' ? Math.round(entry.value * 100) / 100 : 0,
+  }));
+
   return (
-    <div ref={chartContainerRef} style={{ width: '100%', height: '100%', minHeight: '200px' }}>
-      {dimensions.width > 0 && dimensions.height > 0 && (
-        <AreaChart data={data} width={dimensions.width} height={dimensions.height}>
+    <div style={{ width: '100%', height: 170 }}>
+      <ResponsiveContainer>
+        <AreaChart data={formattedData}>
           <defs>
             <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
               <stop offset={off} stopColor="green" stopOpacity={1} />
@@ -58,7 +57,7 @@ const TradingLineChart = ({ data }: Props) => {
           <Tooltip />
           <Area type="monotone" dataKey="value" stroke="#000" fill="url(#splitColor)" />
         </AreaChart>
-      )}
+      </ResponsiveContainer>
     </div>
   );
 };

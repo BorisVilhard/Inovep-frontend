@@ -46,11 +46,7 @@ const ComponentDrawer: React.FC<Props> = ({ accordionItems, isOpen }) => {
 
   return (
     <Drawer isOpened={isOpen}>
-      <Accordion
-        mode="single"
-        defaultOpen={[accordionData[0]?.name]} // Adjust as needed
-        items={accordionData}
-      />
+      <Accordion mode="single" defaultOpen={[accordionData[0]?.name]} items={accordionData} />
     </Drawer>
   );
 };

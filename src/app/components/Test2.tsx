@@ -1,344 +1,269 @@
-import React, { useEffect, useState } from 'react';
+// Import necessary modules and libraries
+import React from 'react';
 import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
 
-// Types from your specification
-type ChartType =
-  | 'EntryArea'
-  | 'IndexArea'
-  | 'EntryLine'
-  | 'IndexLine'
-  | 'TradingLine'
-  | 'IndexBar'
-  | 'Bar'
-  | 'Pie'
-  | 'Line'
-  | 'Radar'
-  | 'Area';
-
-interface Entry {
+// Define the data interfaces
+interface DataItem {
   title: string;
   value: number | string;
-  date: string;
-  fileName: string;
-  _id?: string;
 }
 
-interface IndexedEntries {
-  id: string;
-  chartType: ChartType;
-  data: Entry[];
-  isChartTypeChanged?: boolean;
-  fileName: string;
-  _id?: string;
-}
-
-interface CombinedChart {
-  id: string;
-  chartType: ChartType;
-  chartIds: string[];
-  data: Entry[];
-  _id?: string;
-}
-
-interface DashboardCategory {
+interface RestructuredData {
   categoryName: string;
-  mainData: IndexedEntries[];
-  combinedData?: CombinedChart[];
-  summaryData?: Entry[];
-  appliedChartType?: ChartType;
-  checkedIds?: string[];
-  combinedCharts?: any[];
-  _id?: string;
+  data: DataItem[];
 }
 
-interface DocumentData {
-  dashboardData: DashboardCategory[];
+interface FinalData {
+  dashboardData: RestructuredData[];
 }
 
-// The sample data you provided:
-const sampleDocumentData: DocumentData = {
+// Sample data as provided
+const sampleData: FinalData = {
   dashboardData: [
     {
       categoryName: 'INV-1642',
-      mainData: [
-        {
-          id: 'inv-1642-customer-name',
-          chartType: 'Area',
-          data: [
-            {
-              title: 'Customer Name',
-              value: 'Foo Bar',
-              date: '2024-11-13T00:00:00.000Z',
-              fileName: 'invoice_data.xlsx',
-              _id: '6734f8191cbc735064214aa5',
-            },
-          ],
-          isChartTypeChanged: false,
-          fileName: 'invoice_data.xlsx',
-          _id: '6734f8191cbc735064214aa4',
-        },
-        {
-          id: 'inv-1642-invoice-date',
-          chartType: 'Area',
-          data: [
-            {
-              title: 'Invoice Date',
-              value: 2024,
-              date: '2024-11-13T00:00:00.000Z',
-              fileName: 'invoice_data.xlsx',
-              _id: '6734f8191cbc735064214aa7',
-            },
-          ],
-          isChartTypeChanged: false,
-          fileName: 'invoice_data.xlsx',
-          _id: '6734f8191cbc735064214aa6',
-        },
-        {
-          id: 'inv-1642-item-description',
-          chartType: 'Area',
-          data: [
-            {
-              title: 'Item Description',
-              value: 'Laptop',
-              date: '2024-11-13T00:00:00.000Z',
-              fileName: 'invoice_data.xlsx',
-              _id: '6734f8191cbc735064214aa9',
-            },
-          ],
-          isChartTypeChanged: false,
-          fileName: 'invoice_data.xlsx',
-          _id: '6734f8191cbc735064214aa8',
-        },
-        {
-          id: 'inv-1642-quantity',
-          chartType: 'Area',
-          data: [
-            {
-              title: 'Quantity',
-              value: 7,
-              date: '2024-11-13T00:00:00.000Z',
-              fileName: 'invoice_data.xlsx',
-              _id: '6734f8191cbc735064214aab',
-            },
-          ],
-          isChartTypeChanged: false,
-          fileName: 'invoice_data.xlsx',
-          _id: '6734f8191cbc735064214aaa',
-        },
-        {
-          id: 'inv-1642-unit-price',
-          chartType: 'Area',
-          data: [
-            {
-              title: 'Unit Price',
-              value: 203.0107398789683,
-              date: '2024-11-13T00:00:00.000Z',
-              fileName: 'invoice_data.xlsx',
-              _id: '6734f8191cbc735064214aad',
-            },
-          ],
-          isChartTypeChanged: false,
-          fileName: 'invoice_data.xlsx',
-          _id: '6734f8191cbc735064214aac',
-        },
-        {
-          id: 'inv-1642-total-amount',
-          chartType: 'Area',
-          data: [
-            {
-              title: 'Total Amount',
-              value: 1421.08,
-              date: '2024-11-13T00:00:00.000Z',
-              fileName: 'invoice_data.xlsx',
-              _id: '6734f8191cbc735064214aaf',
-            },
-          ],
-          isChartTypeChanged: false,
-          fileName: 'invoice_data.xlsx',
-          _id: '6734f8191cbc735064214aae',
-        },
+      data: [
+        { title: 'Customer Name', value: 'Foo Bar' },
+        { title: 'Invoice Date', value: 49643 },
+        { title: 'Item Description', value: 'Laptop' },
+        { title: 'Quantity', value: 21 },
+        { title: 'Unit Price', value: 1553.577255560916 },
+        { title: 'Total Amount', value: 10875.05 },
       ],
-      combinedData: [
-        {
-          id: 'combined-1732720771261',
-          chartType: 'Pie',
-          chartIds: ['inv-1642-quantity', 'inv-1642-invoice-date'],
-          data: [
-            {
-              title: 'Invoice Date',
-              value: 2024,
-              date: '2024-11-20T00:00:00.000Z',
-              fileName: 'invoice_data_same_invoices.xlsx',
-              _id: '673db955c1d7b4f12aeb5a3c',
-            },
-            {
-              title: 'Invoice Date',
-              value: 2024,
-              date: '2024-11-20T00:00:00.000Z',
-              fileName: 'invoice_data.xlsx',
-              _id: '673dba30c1d7b4f12aec7bda',
-            },
-            {
-              title: 'Invoice Date',
-              value: 45595,
-              date: '2024-11-22T00:00:00.000Z',
-              fileName: 'new_invoice_data.xlsx',
-              _id: '6740717ec1d7b4f12a1465e1',
-            },
-            {
-              title: 'Quantity',
-              value: 7,
-              date: '2024-11-20T00:00:00.000Z',
-              fileName: 'invoice_data_same_invoices.xlsx',
-              _id: '673db955c1d7b4f12aeb5a40',
-            },
-            {
-              title: 'Quantity',
-              value: 7,
-              date: '2024-11-20T00:00:00.000Z',
-              fileName: 'invoice_data.xlsx',
-              _id: '673dba30c1d7b4f12aec7bdc',
-            },
-            {
-              title: 'Quantity',
-              value: 7,
-              date: '2024-11-22T00:00:00.000Z',
-              fileName: 'new_invoice_data.xlsx',
-              _id: '6740717ec1d7b4f12a1465e3',
-            },
-          ],
-          _id: '67473cf626d64b203ea982b9',
-        },
+    },
+    {
+      categoryName: 'INV-7083',
+      data: [
+        { title: 'Customer Name', value: 'Acme Corp' },
+        { title: 'Invoice Date', value: 49639 },
+        { title: 'Item Description', value: 'Laptop' },
+        { title: 'Quantity', value: 15 },
+        { title: 'Unit Price', value: 1926.9167993375754 },
+        { title: 'Total Amount', value: 6731.37 },
       ],
-      checkedIds: ['inv-1642-unit-price'],
-      _id: '6734f8191cbc735064214aa3',
-      combinedCharts: [],
-      summaryData: [],
-      appliedChartType: 'TradingLine',
+    },
+    {
+      categoryName: 'INV-3473',
+      data: [
+        { title: 'Customer Name', value: 'Jane Smith' },
+        { title: 'Invoice Date', value: 2024 },
+        { title: 'Item Description', value: 'Laptop' },
+        { title: 'Quantity', value: 17 },
+        { title: 'Unit Price', value: 1098.2224468798882 },
+        { title: 'Total Amount', value: 8670.27 },
+      ],
+    },
+    {
+      categoryName: 'INV-6607',
+      data: [
+        { title: 'Customer Name', value: 'Foo Bar' },
+        { title: 'Invoice Date', value: 2024 },
+        { title: 'Item Description', value: 'Mouse' },
+        { title: 'Quantity', value: 16 },
+        { title: 'Unit Price', value: 883.0923604945771 },
+        { title: 'Total Amount', value: 3585.7 },
+      ],
+    },
+    {
+      categoryName: 'INV-7324',
+      data: [
+        { title: 'Customer Name', value: 'John Doe' },
+        { title: 'Invoice Date', value: 2024 },
+        { title: 'Item Description', value: 'Laptop' },
+        { title: 'Quantity', value: 21 },
+        { title: 'Unit Price', value: 2102.909546342563 },
+        { title: 'Total Amount', value: 14436.73 },
+      ],
+    },
+    {
+      categoryName: 'INV-9215',
+      data: [
+        { title: 'Customer Name', value: 'Jane Smith' },
+        { title: 'Invoice Date', value: 2024 },
+        { title: 'Item Description', value: 'Keyboard' },
+        { title: 'Quantity', value: 14 },
+        { title: 'Unit Price', value: 1990.2065956817464 },
+        { title: 'Total Amount', value: 9804.45 },
+      ],
+    },
+    {
+      categoryName: 'INV-9167',
+      data: [
+        { title: 'Customer Name', value: 'Acme Corp' },
+        { title: 'Invoice Date', value: 2024 },
+        { title: 'Item Description', value: 'Monitor' },
+        { title: 'Quantity', value: 19 },
+        { title: 'Unit Price', value: 2859.181966960896 },
+        { title: 'Total Amount', value: 18052.48 },
+      ],
+    },
+    {
+      categoryName: 'INV-2493',
+      data: [
+        { title: 'Customer Name', value: 'Jane Smith' },
+        { title: 'Invoice Date', value: 2024 },
+        { title: 'Item Description', value: 'Mouse' },
+        { title: 'Quantity', value: 26 },
+        { title: 'Unit Price', value: 1353.2244731350486 },
+        { title: 'Total Amount', value: 14857.22 },
+      ],
+    },
+    {
+      categoryName: 'INV-9446',
+      data: [
+        { title: 'Customer Name', value: 'Jane Smith' },
+        { title: 'Invoice Date', value: 2024 },
+        { title: 'Item Description', value: 'Monitor' },
+        { title: 'Quantity', value: 24 },
+        { title: 'Unit Price', value: 1662.8569532764983 },
+        { title: 'Total Amount', value: 13888.76 },
+      ],
+    },
+    {
+      categoryName: 'INV-4420',
+      data: [
+        { title: 'Customer Name', value: 'John Doe' },
+        { title: 'Invoice Date', value: 2024 },
+        { title: 'Item Description', value: 'Chair' },
+        { title: 'Quantity', value: 18 },
+        { title: 'Unit Price', value: 1342.35 },
+        { title: 'Total Amount', value: 7529.65 },
+      ],
     },
   ],
 };
 
-// Restructured type
-interface RestructuredCategory {
-  categoryName: string;
-  data: {
-    title: string;
-    value: string | number;
-    date: string;
-  }[];
-}
-
-function restructureData(dashboardData: DashboardCategory[]): RestructuredCategory[] {
-  return dashboardData.map((category) => {
-    const mainEntries = category.mainData.flatMap((md) =>
-      md.data.map((d) => ({
-        title: d.title,
-        value: d.value,
-        date: d.date,
-      })),
-    );
-
-    const combinedEntries = category.combinedData
-      ? category.combinedData.flatMap((cd) =>
-          cd.data.map((d) => ({
-            title: d.title,
-            value: d.value,
-            date: d.date,
-          })),
-        )
-      : [];
-
-    const summaryEntries = category.summaryData
-      ? category.summaryData.map((d) => ({
-          title: d.title,
-          value: d.value,
-          date: d.date,
-        }))
-      : [];
-
-    const allData = [...mainEntries, ...combinedEntries, ...summaryEntries];
-
-    return {
-      categoryName: category.categoryName,
-      data: allData,
-    };
-  });
-}
-
-function generateCSV(restructuredData: RestructuredCategory[]): string {
-  let csvString = 'Category,Title,Value,Date\n';
-  restructuredData.forEach((category) => {
-    category.data.forEach((d) => {
-      const row = `"${category.categoryName}","${d.title}","${d.value}","${d.date}"\n`;
-      csvString += row;
+// React component
+const Test2: React.FC = () => {
+  // Function to process data and generate headers and rows
+  const processData = (data: FinalData) => {
+    const allTitlesSet = new Set<string>();
+    data.dashboardData.forEach((item) => {
+      item.data.forEach((dataItem) => {
+        allTitlesSet.add(dataItem.title);
+      });
     });
-  });
-  return csvString;
-}
 
-function generateExcel(restructuredData: RestructuredCategory[]): Blob {
-  const wb = XLSX.utils.book_new();
-  restructuredData.forEach((category) => {
-    const wsData = [
-      ['Title', 'Value', 'Date'],
-      ...category.data.map((d) => [d.title, d.value, d.date]),
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    XLSX.utils.book_append_sheet(wb, ws, category.categoryName.slice(0, 31));
-  });
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  return new Blob([wbout], { type: 'application/octet-stream' });
-}
+    const titles = Array.from(allTitlesSet);
+    // Sort titles for consistency (optional)
+    titles.sort();
 
-export default function Test2() {
-  const [csvData, setCsvData] = useState('');
-  const [excelBlob, setExcelBlob] = useState<Blob | null>(null);
+    // Prepare header row
+    const headers = ['Category Name', ...titles];
 
-  useEffect(() => {
-    const restructured = restructureData(sampleDocumentData.dashboardData);
-    const csv = generateCSV(restructured);
-    setCsvData(csv);
+    // Prepare data rows
+    const rows = data.dashboardData.map((item) => {
+      const row: (string | number)[] = [item.categoryName];
+      const dataMap = new Map<string, string | number>();
+      item.data.forEach((dataItem) => {
+        dataMap.set(dataItem.title, dataItem.value);
+      });
+      titles.forEach((title) => {
+        row.push(dataMap.get(title) ?? '');
+      });
+      return row;
+    });
 
-    const excel = generateExcel(restructured);
-    setExcelBlob(excel);
-  }, []);
+    return { headers, rows };
+  };
 
+  // Function to download CSV
   const downloadCSV = () => {
-    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, 'data.csv');
+    const { headers, rows } = processData(sampleData);
+    const csvContent = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((item) => {
+            if (typeof item === 'string') {
+              // Escape double quotes
+              const escaped = item.replace(/"/g, '""');
+              return `"${escaped}"`;
+            }
+            return item;
+          })
+          .join(','),
+      )
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    // Create a temporary link to trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'data.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
+  // Function to download Excel
   const downloadExcel = () => {
-    if (!excelBlob) return;
-    saveAs(excelBlob, 'data.xlsx');
-  };
+    const { headers, rows } = processData(sampleData);
+    const worksheetData = [headers, ...rows];
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
 
-  const downloadPDF = async () => {
-    const response = await fetch('/api/generate-pdf');
-    if (!response.ok) {
-      console.error('Failed to fetch PDF');
-      return;
-    }
-    const blob = await response.blob();
-    saveAs(blob, 'generated.pdf');
+    // Generate buffer
+    const wbout = XLSX.write(workbook, {
+      type: 'array',
+      bookType: 'xlsx',
+    });
+
+    // Create a Blob and trigger download
+    const blob = new Blob([wbout], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8',
+    });
+    const url = URL.createObjectURL(blob);
+
+    // Create a temporary link to trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'data.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Data Generation Demo</h1>
-      <p>
-        This page restructures the provided data and allows you to download CSV, Excel, and a
-        server-generated PDF.
-      </p>
-      <button onClick={downloadCSV} style={{ marginRight: '10px' }}>
-        Download CSV
-      </button>
-      <button onClick={downloadExcel} style={{ marginRight: '10px' }}>
-        Download Excel
-      </button>
-      <button onClick={downloadPDF}>Download PDF</button>
+    <div style={styles.container}>
+      <h1>Data Exporter</h1>
+      <div style={styles.buttonContainer}>
+        <button style={styles.button} onClick={downloadCSV}>
+          Download CSV
+        </button>
+        <button style={styles.button} onClick={downloadExcel}>
+          Download Excel
+        </button>
+      </div>
     </div>
   );
-}
+};
+
+// Simple styling for the component
+const styles: { [key: string]: React.CSSProperties } = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '50px',
+    fontFamily: 'Arial, sans-serif',
+  },
+  buttonContainer: {
+    display: 'flex',
+    gap: '20px',
+    marginTop: '20px',
+  },
+  button: {
+    padding: '10px 20px',
+    fontSize: '16px',
+    cursor: 'pointer',
+    borderRadius: '5px',
+    border: 'none',
+    backgroundColor: '#4CAF50',
+    color: 'white',
+  },
+};
+
+export default Test2;

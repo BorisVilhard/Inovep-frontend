@@ -58,7 +58,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
   return (
     <GoogleOAuthProvider
-      clientId={'923601771548-gtdsovagchmlhb21bhu3v47m03oikirt.apps.googleusercontent.com'}
+      clientId={'144138078197-u35dcpt8s6nd044f33b90098dfpsisns.apps.googleusercontent.com'}
     >
       <html lang="en">
         <head />

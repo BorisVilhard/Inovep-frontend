@@ -1,122 +1,31 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import DataBar from './features/DataBar';
-import { ChartType, DashboardCategory, DocumentData, Entry, CombinedChart } from '@/types/types';
-import { useAggregateData } from '../../../utils/aggregateData';
-import ComponentDrawer from './components/ComponentDrawer';
-import NoDataPanel from './features/NoDataPanel';
 import axios from 'axios';
-import useStore from '../auth/api/userReponse';
-import * as zod from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+
+// Child Components
+import DataBar from './features/DataBar';
+import ComponentDrawer from './components/ComponentDrawer';
+import NoDataPanel from './features/NoDataPanel';
+import ChartPanel from './features/ChartPanel';
+import DataDifferenceModal from '@/app/components/testModal/DataDifferenceModal';
 import DashboardNameModal from '@/app/components/testModal/DashboardNameModal';
 import ConfirmationModal from '@/app/components/testModal/ConfirmationModal';
 import Dropdown from '@/app/components/Dropdown/Dropdown';
-import DataDifferenceModal from '@/app/components/testModal/DataDifferenceModal';
 import Loading from '@/app/loading';
-import { useUpdateChartStore } from '../../../utils/updateChart';
-import ChartPanel from './features/ChartPanel';
-import { accordionItemsData } from './data/AccordionItems';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import { CustomDragLayer } from '@/app/components/CustomLayer/CustomLayer';
 
-const DashboardFormSchema = zod.object({
-  dashboardData: zod.array(
-    zod.object({
-      categoryName: zod.string(),
-      mainData: zod.array(
-        zod.object({
-          id: zod.string(),
-          chartType: zod.enum([
-            'EntryArea',
-            'IndexArea',
-            'EntryLine',
-            'IndexLine',
-            'TradingLine',
-            'IndexBar',
-            'Bar',
-            'Pie',
-            'Line',
-            'Radar',
-            'Area',
-          ]),
-          data: zod.array(
-            zod.object({
-              title: zod.string(),
-              value: zod.union([zod.number(), zod.string()]),
-              date: zod.string().refine((date) => !isNaN(Date.parse(date)), {
-                message: 'Invalid date format',
-              }),
-              fileName: zod.string(),
-            }),
-          ),
-          isChartTypeChanged: zod.boolean().optional(),
-          fileName: zod.string(),
-        }),
-      ),
-      combinedData: zod
-        .array(
-          zod.object({
-            id: zod.string(),
-            chartType: zod.enum([
-              'EntryArea',
-              'IndexArea',
-              'EntryLine',
-              'IndexLine',
-              'TradingLine',
-              'IndexBar',
-              'Bar',
-              'Pie',
-              'Line',
-              'Radar',
-              'Area',
-            ]),
-            chartIds: zod.array(zod.string()),
-            data: zod.array(
-              zod.object({
-                title: zod.string(),
-                value: zod.union([zod.number(), zod.string()]),
-                date: zod.string(),
-                fileName: zod.string(),
-              }),
-            ),
-          }),
-        )
-        .optional(),
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
-      summaryData: zod
-        .array(
-          zod.object({
-            title: zod.string(),
-            value: zod.union([zod.number(), zod.string()]),
-            date: zod.string(),
-            fileName: zod.string(),
-          }),
-        )
-        .optional(),
-      appliedChartType: zod
-        .enum([
-          'EntryArea',
-          'IndexArea',
-          'EntryLine',
-          'IndexLine',
-          'TradingLine',
-          'IndexBar',
-          'Bar',
-          'Pie',
-          'Line',
-          'Radar',
-          'Area',
-        ])
-        .optional(),
-      checkedIds: zod.array(zod.string()).optional(),
-    }),
-  ),
-});
+import useStore from '../auth/api/userReponse';
+import { useAggregateData } from '../../../utils/aggregateData';
+import { useUpdateChartStore } from '../../../utils/updateChart';
 
-type DashboardFormValues = zod.infer<typeof DashboardFormSchema>;
+import { accordionItemsData } from './data/AccordionItems';
+import { ChartType, DashboardCategory, DocumentData, Entry, CombinedChart } from '@/types/types';
+import { DashboardFormSchema, DashboardFormValues } from './DashboardFormValues';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<DocumentData | null>(null);
@@ -137,7 +46,7 @@ const Dashboard = () => {
   const [differenceData, setDifferenceData] = useState<any>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isApplyingPendingData, setIsApplyingPendingData] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // New state variable
+  const [isUploading, setIsUploading] = useState(false);
   const { setChartData } = useUpdateChartStore();
   const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] = useState(false);
   const [isDeleteDashboardModalOpen, setIsDeleteDashboardModalOpen] = useState(false);
@@ -153,7 +62,6 @@ const Dashboard = () => {
 
   const { reset } = methods;
 
-  // Fetch dashboards on component mount
   useEffect(() => {
     if (userId) {
       axios
@@ -163,10 +71,10 @@ const Dashboard = () => {
           },
         })
         .then((response) => {
-          const dashboards = response.data;
-          setDashboards(dashboards);
-          if (dashboards.length > 0) {
-            const firstDashboard = dashboards[0];
+          const fetchedDashboards = response.data;
+          setDashboards(fetchedDashboards);
+          if (fetchedDashboards.length > 0) {
+            const firstDashboard = fetchedDashboards[0];
             setDashboardData(firstDashboard);
             setDashboardId(firstDashboard._id);
             setCategories(firstDashboard.dashboardData);
@@ -180,63 +88,14 @@ const Dashboard = () => {
     }
   }, [userId, accessToken, reset]);
 
-  const compareData = (oldData: DashboardCategory[], newData: DashboardCategory[]) => {
-    const differences = {
-      addedCategories: [] as DashboardCategory[],
-      removedCategories: [] as DashboardCategory[],
-      addedTitles: [] as { category: string; titles: string[] }[],
-      removedTitles: [] as { category: string; titles: string[] }[],
-    };
-
-    const oldCategories = new Set(oldData.map((cat) => cat.categoryName));
-    const newCategories = new Set(newData.map((cat) => cat.categoryName));
-
-    for (const newCat of newData) {
-      if (!oldCategories.has(newCat.categoryName)) {
-        differences.addedCategories.push(newCat);
-      }
-    }
-
-    for (const oldCat of oldData) {
-      if (!newCategories.has(oldCat.categoryName)) {
-        differences.removedCategories.push(oldCat);
-      }
-    }
-
-    for (const newCat of newData) {
-      const oldCat = oldData.find((cat) => cat.categoryName === newCat.categoryName);
-      if (oldCat) {
-        const oldTitles = new Set(oldCat.mainData.map((entry) => entry.id));
-        const newTitles = new Set(newCat.mainData.map((entry) => entry.id));
-
-        const addedTitles = [...newTitles].filter((id) => !oldTitles.has(id));
-        const removedTitles = [...oldTitles].filter((id) => !newTitles.has(id));
-
-        if (addedTitles.length > 0) {
-          differences.addedTitles.push({
-            category: newCat.categoryName,
-            titles: addedTitles,
-          });
-        }
-
-        if (removedTitles.length > 0) {
-          differences.removedTitles.push({
-            category: newCat.categoryName,
-            titles: removedTitles,
-          });
-        }
-      }
-    }
-
-    return differences;
-  };
-
+  // ----------------------------
+  //  Utility: Handle new data
+  // ----------------------------
   const handleNewData = (newData: DocumentData) => {
     setDashboardData({ ...newData });
     setCategories([...newData.dashboardData]);
     setFiles([...newData.files]);
     setCurrentCategory(newData.dashboardData[0]?.categoryName);
-
     reset({ dashboardData: newData.dashboardData });
 
     const initialCombinedData: { [key: string]: CombinedChart[] } = {};
@@ -246,16 +105,13 @@ const Dashboard = () => {
 
     newData.dashboardData.forEach((category) => {
       if (category.combinedData) {
-        initialCombinedData[category.categoryName] = (category.combinedData as CombinedChart[]).map(
-          (chart) => ({
-            id: chart.id,
-            chartType: chart.chartType,
-            chartIds: chart.chartIds,
-            data: chart.data,
-          }),
-        );
+        initialCombinedData[category.categoryName] = category.combinedData.map((chart) => ({
+          id: chart.id,
+          chartType: chart.chartType,
+          chartIds: chart.chartIds,
+          data: chart.data,
+        }));
       }
-
       if (category.summaryData) {
         initialSummaryData[category.categoryName] = category.summaryData;
       }
@@ -273,12 +129,18 @@ const Dashboard = () => {
     setCheckedIds(initialCheckedIds);
   };
 
-  const handleDataDifferencesDetected = (differences: any, pendingFile: File) => {
+  // --------------------------------------------
+  //  Use the utility function to compare data
+  // --------------------------------------------
+  const handleDataDifferencesDetected = (differences: any, file: File) => {
     setDifferenceData(differences);
-    setPendingFile(pendingFile);
+    setPendingFile(file);
     setIsDifferenceModalOpen(true);
   };
 
+  // -------------------------------------------------
+  //  When user chooses "Apply" on DataDifferenceModal
+  // -------------------------------------------------
   const applyPendingData = async () => {
     if (!pendingFile || isUploading) return;
 
@@ -307,19 +169,24 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error uploading data:', error);
     } finally {
-      setIsUploading(false); // Reset the uploading flag
+      setIsUploading(false);
       setLoading(false);
       setPendingFile(null);
-      setIsDifferenceModalOpen(false); // Close the modal after applying
+      setIsDifferenceModalOpen(false);
     }
   };
 
-  // Discard the pending data if the user clicks "Cancel" in the modal
+  // -------------------------------------------------
+  //  Discard the pending data if user clicks Cancel
+  // -------------------------------------------------
   const discardPendingData = () => {
     setPendingFile(null);
-    setIsDifferenceModalOpen(false); // Close the modal without applying changes
+    setIsDifferenceModalOpen(false);
   };
 
+  // -------------------------------------------------
+  //  Delete data by fileName
+  // -------------------------------------------------
   const deleteDataByFileName = async (fileNameToDelete: string) => {
     if (!dashboardId || !userId) return;
     try {
@@ -331,7 +198,6 @@ const Dashboard = () => {
           },
         },
       );
-
       const { dashboard } = response.data;
       handleNewData(dashboard);
     } catch (error) {
@@ -339,24 +205,24 @@ const Dashboard = () => {
     }
   };
 
-  const existingDashboardNames =
-    dashboards &&
-    dashboards
-      .map((d) => d.dashboardName)
-      .filter((name) => name !== dashboardToEdit?.dashboardName);
+  // -------------------------------------------------
+  //  Dashboard name editing & deleting logic
+  // -------------------------------------------------
+  const existingDashboardNames = dashboards
+    ?.map((d) => d.dashboardName)
+    .filter((name) => name !== dashboardToEdit?.dashboardName);
 
   const handleNewDashboard = (dashboard: DocumentData) => {
     setDashboardData(dashboard);
     setDashboardId(dashboard._id);
-
     setCategories(dashboard.dashboardData);
     setFiles(dashboard.files);
     setDashboards((prev) => [...prev, dashboard]);
     reset({ dashboardData: dashboard.dashboardData });
   };
 
-  const handleDashboardSelect = (dashboardId: string) => {
-    const selectedDashboard = dashboards.find((d) => d._id === dashboardId);
+  const handleDashboardSelect = (selectedId: string) => {
+    const selectedDashboard = dashboards.find((d) => d._id === selectedId);
     if (selectedDashboard) {
       setDashboardData(selectedDashboard);
       setDashboardId(selectedDashboard._id);
@@ -395,19 +261,13 @@ const Dashboard = () => {
           },
         },
       );
-
       const { dashboard } = response.data;
-
       setDashboards((prevDashboards) =>
-        prevDashboards.map((dashboardItem) =>
-          dashboardItem._id === dashboard._id ? dashboard : dashboardItem,
-        ),
+        prevDashboards.map((dbItem) => (dbItem._id === dashboard._id ? dashboard : dbItem)),
       );
-
       if (dashboardData && dashboardData._id === dashboard._id) {
         setDashboardData(dashboard);
       }
-
       setIsEditDashboardModalOpen(false);
       setDashboardToEdit(null);
     } catch (error: any) {
@@ -418,21 +278,16 @@ const Dashboard = () => {
   const handleDeleteDashboard = async () => {
     if (!userId || !dashboardToDelete) return;
     try {
-      const updatedDashboards = dashboards.filter(
-        (dashboardItem) => dashboardItem._id !== dashboardToDelete._id,
-      );
-
+      const updatedDashboards = dashboards.filter((dbItem) => dbItem._id !== dashboardToDelete._id);
       await axios.delete(
         `http://localhost:3500/data/users/${userId}/dashboard/${dashboardToDelete._id}`,
         {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+          headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-
       setDashboards(updatedDashboards);
 
+      // If the currently selected dashboard is deleted
       if (dashboardData && dashboardData._id === dashboardToDelete._id) {
         if (updatedDashboards.length > 0) {
           const firstDashboard = updatedDashboards[0];
@@ -449,7 +304,6 @@ const Dashboard = () => {
           reset({ dashboardData: [] });
         }
       }
-
       setIsDeleteDashboardModalOpen(false);
       setDashboardToDelete(null);
     } catch (error: any) {
@@ -457,8 +311,12 @@ const Dashboard = () => {
     }
   };
 
+  // ------------
+  // Aggregations
+  // ------------
   const aggregateData = useAggregateData();
 
+  // Initialize combined/summary data when dashboardData changes
   useEffect(() => {
     if (dashboardData) {
       const initialCombinedData: { [category: string]: CombinedChart[] } = {};
@@ -495,6 +353,7 @@ const Dashboard = () => {
     }
   }, [dashboardData]);
 
+  // Whenever checked IDs change, create a new combined chart for the current category
   useEffect(() => {
     if (currentCategory && checkedIds[currentCategory]?.length > 0) {
       const newCombinedEntries: Entry[] = checkedIds[currentCategory].reduce<Entry[]>((acc, id) => {
@@ -506,15 +365,13 @@ const Dashboard = () => {
         return [...acc, ...entryData];
       }, []);
 
-      // Create a CombinedChart object
       const newCombinedChart: CombinedChart = {
-        id: `combined-${Date.now()}`, // Generate a unique ID
-        chartType: appliedChartTypes[currentCategory] || 'Area', // Use existing or default chart type
-        chartIds: checkedIds[currentCategory], // The IDs being combined
-        data: newCombinedEntries, // The aggregated Entry data
+        id: `combined-${Date.now()}`,
+        chartType: appliedChartTypes[currentCategory] || 'Area',
+        chartIds: checkedIds[currentCategory],
+        data: newCombinedEntries,
       };
 
-      // Update combinedData with the new CombinedChart
       setCombinedData((prev) => ({
         ...prev,
         [currentCategory]: [...(prev[currentCategory] || []), newCombinedChart],
@@ -527,27 +384,33 @@ const Dashboard = () => {
     }
   }, [checkedIds, currentCategory, dashboardData, appliedChartTypes]);
 
+  // Aggregate the newly created combined data
   useEffect(() => {
-    if (
-      currentCategory &&
-      combinedData[currentCategory] &&
-      combinedData[currentCategory].length > 0
-    ) {
+    if (currentCategory && combinedData[currentCategory]?.length > 0) {
       aggregateData({
         data: combinedData[currentCategory],
         checkedIds: checkedIds[currentCategory],
         getAggregatedData: (data) =>
-          setSummaryData((prev) => ({ ...prev, [currentCategory]: data })),
+          setSummaryData((prev) => ({
+            ...prev,
+            [currentCategory]: data,
+          })),
       });
     } else if (currentCategory) {
       setSummaryData((prev) => ({ ...prev, [currentCategory]: [] }));
     }
   }, [aggregateData, combinedData, checkedIds, currentCategory]);
 
+  // ---------------------
+  //        RENDER
+  // ---------------------
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="relative flex h-full w-full flex-col items-center justify-center bg-white">
+        {/* Drawer for side components */}
         <ComponentDrawer accordionItems={accordionItemsData()} isOpen={setEditMode} />
+
+        {/* Modal for showing data differences (added/removed categories, etc.) */}
         <DataDifferenceModal
           isOpen={isDifferenceModalOpen}
           onClose={discardPendingData}
@@ -556,6 +419,7 @@ const Dashboard = () => {
           isUploading={isUploading}
         />
 
+        {/* Modals for editing/deleting dashboard */}
         <DashboardNameModal
           isOpen={isEditDashboardModalOpen}
           onClose={() => {
@@ -566,6 +430,7 @@ const Dashboard = () => {
           existingDashboardNames={existingDashboardNames || []}
           initialName={dashboardToEdit?.dashboardName}
         />
+
         <ConfirmationModal
           isOpen={isDeleteDashboardModalOpen}
           onClose={() => {
@@ -577,33 +442,36 @@ const Dashboard = () => {
           message={`Are you sure you want to delete the dashboard "${dashboardToDelete?.dashboardName}"? This action cannot be undone.`}
         />
 
+        {/* Dashboard selector dropdown */}
         <Dropdown
           type="secondary"
           size="large"
           items={
-            dashboards &&
-            dashboards.map((dashboard) => ({
-              id: dashboard._id,
-              name: dashboard.dashboardName,
-            }))
+            dashboards?.map((db) => ({
+              id: db._id,
+              name: db.dashboardName,
+            })) || []
           }
           onSelect={handleDashboardSelect}
           selectedId={dashboardId}
           onEdit={handleEditClick}
           onDelete={handleDeleteClick}
         />
+
+        {/* Data bar with file uploads, new dashboard creation, etc. */}
         <DataBar
           getFileName={setFileName}
           isLoading={setLoading}
           getData={handleNewData}
           dashboardId={dashboardId}
           files={files}
-          existingDashboardNames={dashboards && dashboards.map((d) => d.dashboardName)}
+          existingDashboardNames={dashboards?.map((d) => d.dashboardName)}
           onCreateDashboard={handleNewDashboard}
           existingDashboardData={dashboardData ? dashboardData.dashboardData : []}
           onDataDifferencesDetected={handleDataDifferencesDetected}
         />
 
+        {/* Main area: Either loading, show chart panel, or show "no data" */}
         {isLoading ? (
           <div className="relative h-[65vh]">
             <Loading />

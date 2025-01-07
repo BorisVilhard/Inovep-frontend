@@ -1,4 +1,3 @@
-// store/useAuthStore.js
 import create from 'zustand';
 import { persist } from 'zustand/middleware';
 import jwt_decode from 'jwt-decode';
