@@ -5,12 +5,12 @@ import axios from 'axios';
 
 import Button from '@/app/components/Button/Button';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
-import Test3 from '@/app/components/testModal/Test3';
 
 import useAuthStore from '@/views/auth/api/userReponse';
 import ChatMessages from './features/ChatMessages';
 import ChatSidebar from './features/ChatSidebar';
 import { generateId } from './utils/generateId';
+import Test3 from '@/app/components/testModal/Test3';
 
 export interface Message {
   id: string;
@@ -311,10 +311,10 @@ function DocumentChat() {
               </Button>
             </form>
           </section>
-
           <ChatMessages messages={messages} chatParentRef={chatParent} />
         </div>
       </div>
+      <Test3 />
     </main>
   );
 }

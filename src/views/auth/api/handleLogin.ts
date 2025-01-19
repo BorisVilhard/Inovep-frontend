@@ -13,7 +13,7 @@ const useLogin = () => {
     async (data: LoginFormValues) => {
       try {
         const response = await axios.post(
-          'http://localhost:3500/auth',
+          'http://localhost:5000/auth',
           {
             email: data.email,
             pwd: data.password,

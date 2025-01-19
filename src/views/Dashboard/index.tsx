@@ -209,8 +209,10 @@ const Dashboard = () => {
   //  Dashboard name editing & deleting logic
   // -------------------------------------------------
   const existingDashboardNames = dashboards
-    ?.map((d) => d.dashboardName)
-    .filter((name) => name !== dashboardToEdit?.dashboardName);
+    ? dashboards
+        ?.map((d) => d.dashboardName)
+        .filter((name) => name !== dashboardToEdit?.dashboardName)
+    : [];
 
   const handleNewDashboard = (dashboard: DocumentData) => {
     setDashboardData(dashboard);
@@ -222,7 +224,7 @@ const Dashboard = () => {
   };
 
   const handleDashboardSelect = (selectedId: string) => {
-    const selectedDashboard = dashboards.find((d) => d._id === selectedId);
+    const selectedDashboard = dashboards && dashboards.find((d) => d._id === selectedId);
     if (selectedDashboard) {
       setDashboardData(selectedDashboard);
       setDashboardId(selectedDashboard._id);
@@ -233,7 +235,7 @@ const Dashboard = () => {
   };
 
   const handleEditClick = (id: string) => {
-    const dashboard = dashboards.find((d) => d._id === id);
+    const dashboard = dashboards && dashboards.find((d) => d._id === id);
     if (dashboard) {
       setDashboardToEdit(dashboard);
       setIsEditDashboardModalOpen(true);
@@ -241,7 +243,7 @@ const Dashboard = () => {
   };
 
   const handleDeleteClick = (id: string) => {
-    const dashboard = dashboards.find((d) => d._id === id);
+    const dashboard = dashboards && dashboards.find((d) => d._id === id);
     if (dashboard) {
       setDashboardToDelete(dashboard);
       setIsDeleteDashboardModalOpen(true);
@@ -278,7 +280,8 @@ const Dashboard = () => {
   const handleDeleteDashboard = async () => {
     if (!userId || !dashboardToDelete) return;
     try {
-      const updatedDashboards = dashboards.filter((dbItem) => dbItem._id !== dashboardToDelete._id);
+      const updatedDashboards =
+        dashboards && dashboards.filter((dbItem) => dbItem._id !== dashboardToDelete._id);
       await axios.delete(
         `http://localhost:3500/data/users/${userId}/dashboard/${dashboardToDelete._id}`,
         {
@@ -447,10 +450,12 @@ const Dashboard = () => {
           type="secondary"
           size="large"
           items={
-            dashboards?.map((db) => ({
-              id: db._id,
-              name: db.dashboardName,
-            })) || []
+            (dashboards &&
+              dashboards?.map((db) => ({
+                id: db._id,
+                name: db.dashboardName,
+              }))) ||
+            []
           }
           onSelect={handleDashboardSelect}
           selectedId={dashboardId}
@@ -465,7 +470,7 @@ const Dashboard = () => {
           getData={handleNewData}
           dashboardId={dashboardId}
           files={files}
-          existingDashboardNames={dashboards?.map((d) => d.dashboardName)}
+          existingDashboardNames={dashboards && dashboards?.map((d) => d.dashboardName)}
           onCreateDashboard={handleNewDashboard}
           existingDashboardData={dashboardData ? dashboardData.dashboardData : []}
           onDataDifferencesDetected={handleDataDifferencesDetected}
