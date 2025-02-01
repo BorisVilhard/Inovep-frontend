@@ -55,9 +55,10 @@ const Layout = ({ children }: { children: ReactNode }) => {
       <div className="circle"></div>
     </div>
   ));
-
   return (
-    <GoogleOAuthProvider clientId={process.env?.GOOGLE_CLIENT_ID || ''}>
+    <GoogleOAuthProvider
+      clientId={'144138078197-u35dcpt8s6nd044f33b90098dfpsisns.apps.googleusercontent.com'}
+    >
       <html lang="en">
         <head />
         <body>
