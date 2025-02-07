@@ -27,7 +27,7 @@ type Props = {
   dashboardName?: string;
 };
 
-const BACKEND_URL = 'http://localhost:3500'; // adjust as needed
+const BACKEND_URL = 'http://localhost:3500'; // Adjust as needed
 const DEVELOPER_KEY = process.env.NEXT_PUBLIC_DEVELOPER_KEY || '';
 
 declare global {
@@ -40,13 +40,14 @@ declare global {
 export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboardName }: Props) {
   const [loggedIn, setLoggedIn] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+
   const [monitoredFile, setMonitoredFile] = useState<{
     fileId: string;
     expiration: number;
     expirationDate: string;
   } | null>(null);
 
-  // from your store or auth context
+  // From your store or auth context
   const { id: userId, accessToken } = useAuthStore();
 
   /**
@@ -60,7 +61,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       'https://www.googleapis.com/auth/spreadsheets',
     onSuccess: async (resp) => {
       try {
-        // Exchange the auth code for tokens on the backend.
+        // Exchange the auth code for tokens on your backend.
         await axios.post(`${BACKEND_URL}/auth/exchange-code`, {
           code: resp.code,
           userId,
@@ -78,84 +79,86 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   });
 
   /**
-   * 2. Socket.io Setup
-   * We create a socket connection to receive "file-updated" events from the backend.
+   * 2. Socket.io Setup (once per component mount)
+   *    We create a socket connection to receive "file-updated" events from the backend.
    */
   useEffect(() => {
     const newSocket = io(BACKEND_URL, { transports: ['websocket'] });
     newSocket.on('connect', () => {
-      console.log('Socket connected:', newSocket.id);
+      console.log('[GoogleCloud] Socket connected:', newSocket.id);
     });
 
-    // When the backend notifies that a file changed in Drive:
+    // 2.1. Listen for "file-updated" from the backend
     newSocket.on('file-updated', async (data: FileUpdatedEvent) => {
-      console.log('file-updated event received:', data);
+      console.log('[GoogleCloud] "file-updated" event received:', data);
 
       // data.fullText => raw text from the file
-      // data.fileName => e.g. "MyDriveDocument.docx" or "spreadsheetTitle"
+      // data.fileName => "MyDriveDocument.docx" or "spreadsheetTitle"
       // data.fileId   => drive file ID
+      if (!data.fullText) {
+        console.log('[GoogleCloud] file-updated event had no fullText. Ignoring...');
+        return;
+      }
 
-      if (data.fullText) {
-        try {
-          // 2.1. (Optional) You might parse the text in one step at the backend
-          //     Or you might want a separate parse endpoint to get a preview:
-          const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+      try {
+        // Example: call a "cloudText" parse endpoint to convert raw text to dashboardData
+        // This endpoint might do some logic with GPT or other parsing.
+        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
 
-          // Example: call a "cloudText" parse endpoint to convert raw text to dashboardData
-          const parseResp = await axios.post(
-            `${BACKEND_URL}/data/users/${userId}/dashboard/${dashboardId}/cloudText`,
-            {
-              fullText: data.fullText,
-              fileName: data.fileName,
-            },
-            { headers },
-          );
+        const parseResp = await axios.post(
+          `${BACKEND_URL}/data/users/${userId}/dashboard/${dashboardId}/cloudText`,
+          {
+            fullText: data.fullText,
+            fileName: data.fileName,
+          },
+          { headers },
+        );
 
-          // parseResp.data => { dashboardData: [...] }
-          const { dashboardData } = parseResp.data;
+        // parseResp.data => { dashboardData: [...] }
+        const { dashboardData } = parseResp.data;
 
-          // 2.2. Provide a "preview" to the parent if desired
-          const tempDoc: DocumentData = {
-            _id: `cloud-temp-${Date.now()}`,
-            dashboardName: 'Cloud Temp (Preview)',
+        // 2.2. Provide a "preview" to the parent if desired
+        const tempDoc: DocumentData = {
+          _id: `cloud-temp-${Date.now()}`,
+          dashboardName: 'Cloud Temp (Preview)',
+          dashboardData,
+          files: [],
+        };
+        getData(tempDoc);
+
+        // 2.3. FINAL: Upload to your "uploadCloudData" endpoint to store in DB
+        const uploadResp = await axios.post(
+          `${BACKEND_URL}/data/users/${userId}/dashboard/uploadCloud`,
+          {
+            dashboardId,
+            dashboardName, // or some fallback
+            fileId: data.fileId,
+            fileName: data.fileName,
             dashboardData,
-            files: [],
-          };
-          getData(tempDoc);
+          },
+          { headers },
+        );
 
-          // 2.3. FINAL: Upload to your main "uploadCloudData" endpoint,
-          //      which merges data & fetches lastUpdate from Google Drive.
-          //      The server will store everything in the DB.
-          const uploadResp = await axios.post(
-            `${BACKEND_URL}/data/users/${userId}/uploadCloud`,
-            {
-              dashboardId,
-              dashboardName, // or some fallback
-              fileId: data.fileId, // <-- pass the real Drive fileId
-              fileName: data.fileName, // The actual name from Drive
-              dashboardData, // The structured data from GPT parse
-            },
-            { headers },
-          );
-          console.log('uploadCloudData response:', uploadResp.data);
-
-          // 2.4. Notify parent that final data has been saved
-          onCloudData(data.fileName, dashboardData);
-        } catch (err: any) {
-          console.error(
-            'Error parsing or uploading cloud data:',
-            err.response?.data || err.message,
-          );
-          alert(err.response?.data?.message || 'Failed to parse/upload cloud data.');
-        }
+        // 2.4. Notify parent that final data has been saved
+        onCloudData(data.fileName, dashboardData);
+      } catch (err: any) {
+        console.error(
+          '[GoogleCloud] Error parsing/uploading cloud data:',
+          err.response?.data || err.message,
+        );
+        alert(err.response?.data?.message || 'Failed to parse/upload cloud data.');
       }
     });
 
+    // 2.2. On socket disconnect
     newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      console.log('[GoogleCloud] Socket disconnected');
     });
 
+    // Keep reference
     setSocket(newSocket);
+
+    // Cleanup on unmount
     return () => {
       newSocket.disconnect();
     };
@@ -163,17 +166,24 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
 
   /**
    * 3. Restore monitored file info from localStorage
+   *    If we had something being monitored previously, re-set so we show UI.
+   *    Then join that file's room if we have a valid socket.
    */
   useEffect(() => {
     const stored = localStorage.getItem('monitoredFile');
     if (stored) {
       const parsed = JSON.parse(stored);
       setMonitoredFile(parsed);
-      if (parsed.fileId && socket) {
-        socket.emit('join-file', parsed.fileId);
-      }
     }
-  }, [socket]);
+  }, []);
+
+  // Whenever `monitoredFile` changes, if we have a socket, join the new file room
+  useEffect(() => {
+    if (monitoredFile?.fileId && socket) {
+      console.log('[GoogleCloud] Joining room for fileId:', monitoredFile.fileId);
+      socket.emit('join-file', monitoredFile.fileId);
+    }
+  }, [monitoredFile?.fileId, socket]);
 
   /**
    * 4. Load Google Drive Picker script on mount
@@ -183,9 +193,9 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       const script = document.createElement('script');
       script.src = 'https://apis.google.com/js/api.js';
       script.onload = () => {
-        console.log('Drive Picker script loaded');
+        console.log('[GoogleCloud] Drive Picker script loaded');
         window.gapi.load('client:picker', () => {
-          console.log('Drive Picker API ready');
+          console.log('[GoogleCloud] Drive Picker API ready');
         });
       };
       document.body.appendChild(script);
@@ -202,7 +212,10 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       });
       return resp.data.accessToken || '';
     } catch (err: any) {
-      console.error('Error fetching current token:', err.response?.data || err.message);
+      console.error(
+        '[GoogleCloud] Error fetching current token:',
+        err.response?.data || err.message,
+      );
       alert('Failed to retrieve access token. Please log in again.');
       return '';
     }
@@ -244,22 +257,27 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       const doc = data.docs[0];
       const fileId = doc.id;
       const mimeType = doc.mimeType;
-      console.log('User selected:', fileId, mimeType);
+      console.log('[GoogleCloud] User selected fileId:', fileId, mimeType);
 
-      // For example, if user picks a folder:
+      // If user picks a folder:
       if (mimeType === 'application/vnd.google-apps.folder') {
         alert('Folder monitoring not implemented in this example.');
         return;
       }
 
-      // Otherwise, we create a watch channel for the file
+      // Otherwise, create a watch channel for the file
       try {
         const resp = await axios.post(
           `${BACKEND_URL}/api/monitor`,
           { fileId, userId },
-          { headers: { Authorization: `Bearer ${accessToken}` } },
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
         );
         alert('Monitoring started for file.');
+        console.log('[GoogleCloud] setupFileMonitoring response:', resp.data);
+
+        // Store in localStorage so we can restore on page reload
         const monitored = {
           fileId,
           expiration: resp.data.channelExpiration,
@@ -267,9 +285,14 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         };
         localStorage.setItem('monitoredFile', JSON.stringify(monitored));
         setMonitoredFile(monitored);
+
+        // Optionally, we can "join-file" immediately
         socket?.emit('join-file', fileId);
       } catch (error: any) {
-        console.error('Error setting up file monitoring:', error.response?.data || error.message);
+        console.error(
+          '[GoogleCloud] Error setting up file monitoring:',
+          error.response?.data || error.message,
+        );
         alert(error.response?.data?.message || 'Failed to set up file monitoring');
       }
     }
@@ -292,6 +315,8 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         },
       );
       alert('Channel renewed successfully');
+      console.log('[GoogleCloud] renewFileChannel response:', resp.data);
+
       const updated = {
         ...monitoredFile,
         expiration: resp.data.channelExpiration,
@@ -300,13 +325,37 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       setMonitoredFile(updated);
       localStorage.setItem('monitoredFile', JSON.stringify(updated));
     } catch (err: any) {
-      console.error('Error renewing channel:', err.response?.data || err.message);
+      console.error('[GoogleCloud] Error renewing channel:', err.response?.data || err.message);
       alert('Failed to renew channel');
     }
   };
 
+  /**
+   * 7. Stop monitoring for the current file
+   */
+  async function stopMonitoring(fileId: string) {
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/monitor/stop`,
+        { fileId, userId },
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      alert('Stopped monitoring file');
+      console.log('[GoogleCloud] stopFileMonitoring success');
+
+      // Cleanup local references
+      setMonitoredFile(null);
+      localStorage.removeItem('monitoredFile');
+    } catch (error) {
+      console.error('[GoogleCloud] Error stopping monitoring:', error);
+      alert('Failed to stop monitoring');
+    }
+  }
+
   return (
-    <div>
+    <div className="text-shades-white">
       {/* 0. If not logged in, show a button/icon to log in */}
       {!loggedIn && (
         <div onClick={() => login()}>
@@ -322,21 +371,24 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
 
       {/* 1. If logged in, show a button to open Google Drive Picker */}
       {loggedIn && (
-        <div>
+        <div style={{ marginTop: '1rem' }}>
           <button onClick={openDrivePicker}>Open Google Drive Picker</button>
         </div>
       )}
 
-      {/* 2. If a file is being monitored, show info + renew button */}
+      {/* 2. If a file is being monitored, show info + renew button + stop button */}
       {monitoredFile && (
         <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #ccc' }}>
           <p>
-            <strong>Monitoring File:</strong> {monitoredFile.fileId}
+            <strong>Monitoring File ID:</strong> {monitoredFile.fileId}
           </p>
           <p>
             <strong>Channel Expires:</strong> {monitoredFile.expirationDate}
           </p>
-          <button onClick={renewChannel}>Renew Channel</button>
+          <button onClick={renewChannel} style={{ marginRight: 8 }}>
+            Renew Channel
+          </button>
+          <button onClick={() => stopMonitoring(monitoredFile.fileId)}>Stop Monitoring</button>
         </div>
       )}
     </div>
