@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import axios from 'axios';
 import io, { Socket } from 'socket.io-client';
-import useAuthStore from '@/views/auth/api/userReponse'; // your store or context
+import useAuthStore from '@/views/auth/api/userReponse';
 import Image from 'next/image';
 import { DocumentData } from '@/types/types';
 
@@ -41,25 +41,45 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   const [loggedIn, setLoggedIn] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  // Single file monitoring info
+  // Single file monitoring state
   const [monitoredFile, setMonitoredFile] = useState<{
     fileId: string;
     expiration: number;
     expirationDate: string;
   } | null>(null);
 
-  // Folder monitoring info
+  // Folder monitoring state
   const [monitoredFolder, setMonitoredFolder] = useState<{
     folderId: string;
     expiration: number;
     expirationDate: string;
   } | null>(null);
 
-  // Auth store
+  // Auth store to get userId and accessToken
   const { id: userId, accessToken } = useAuthStore();
 
   /**
-   * 1. Google OAuth using @react-oauth/google (auth-code flow)
+   * Helper: Wait for required data to be available.
+   * We now check that dashboardData is an array and is not empty.
+   * Adjust retries and delay as needed.
+   */
+  const waitForRequiredData = async (
+    getDataFn: () => { fileId?: string; fileName?: string; dashboardData?: any[] },
+    retries = 5,
+    delay = 500,
+  ) => {
+    for (let i = 0; i < retries; i++) {
+      const { fileId, fileName, dashboardData } = getDataFn();
+      if (fileId && fileName && Array.isArray(dashboardData) && dashboardData.length > 0) {
+        return { fileId, fileName, dashboardData };
+      }
+      await new Promise((res) => setTimeout(res, delay));
+    }
+    throw new Error('Required data not available after waiting.');
+  };
+
+  /**
+   * Google OAuth using @react-oauth/google (auth-code flow)
    */
   const login = useGoogleLogin({
     flow: 'auth-code',
@@ -86,7 +106,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   });
 
   /**
-   * 2. Setup Socket.io once
+   * Setup Socket.io connection once
    */
   useEffect(() => {
     const newSocket = io(BACKEND_URL, { transports: ['websocket'] });
@@ -94,28 +114,26 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       console.log('[GoogleCloud] Socket connected:', newSocket.id);
     });
 
-    // 2a. Listen for "file-updated" events
+    // Listen for "file-updated" events
     newSocket.on('file-updated', async (data: FileUpdatedEvent) => {
       console.log('[GoogleCloud] "file-updated" event received:', data);
       if (!data.fullText) {
-        console.log('[GoogleCloud] No fullText; ignoring...');
+        console.log('[GoogleCloud] No fullText provided; ignoring event.');
         return;
       }
 
       try {
-        // 1) Parse cloud text
         const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+        // First process the raw text via your /cloudText endpoint
         const parseResp = await axios.post(
           `${BACKEND_URL}/data/users/${userId}/dashboard/${dashboardId}/cloudText`,
-          {
-            fullText: data.fullText,
-            fileName: data.fileName,
-          },
+          { fullText: data.fullText, fileName: data.fileName },
           { headers },
         );
-        const { dashboardData } = parseResp.data;
+        const { dashboard } = parseResp.data;
+        const dashboardData = dashboard.dashboardData;
 
-        // 2) Provide a "preview" to parent
+        // Provide a preview to the parent component
         const tempDoc: DocumentData = {
           _id: `cloud-temp-${Date.now()}`,
           dashboardName: 'Cloud Temp (Preview)',
@@ -124,21 +142,47 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         };
         getData(tempDoc);
 
-        // 3) Upload final to DB
-        const uploadResp = await axios.post(
-          `${BACKEND_URL}/data/users/${userId}/dashboard/uploadCloud`,
-          {
-            dashboardId,
-            dashboardName,
-            fileId: data.fileId,
-            fileName: data.fileName,
-            dashboardData,
-          },
-          { headers },
-        );
+        // Wait until we are sure that fileId, fileName, and (nonempty) dashboardData are ready.
+        const { fileId, fileName } = await waitForRequiredData(() => ({
+          fileId: data.fileId,
+          fileName: data.fileName,
+          dashboardData,
+        }));
 
-        // 4) Notify parent
-        onCloudData(data.fileName, dashboardData);
+        // Try to upload the cloud data (with retry logic)
+        const uploadCloudWithRetries = async (attempt: number = 1): Promise<any> => {
+          try {
+            const uploadResp = await axios.post(
+              `${BACKEND_URL}/data/users/${userId}/dashboard/uploadCloud`,
+              {
+                dashboardId,
+                dashboardName,
+                fileId,
+                fileName,
+                dashboardData,
+              },
+              { headers },
+            );
+            return uploadResp;
+          } catch (err: any) {
+            // If we get the "required" error, wait and try again (up to 3 times)
+            if (
+              attempt < 3 &&
+              err.response?.data?.message === 'fileId, fileName, and dashboardData are required'
+            ) {
+              console.warn(
+                `Upload attempt ${attempt} failed due to missing data. Retrying in 500ms...`,
+              );
+              await new Promise((res) => setTimeout(res, 500));
+              return uploadCloudWithRetries(attempt + 1);
+            }
+            throw err;
+          }
+        };
+
+        // Attempt to upload (with retries if necessary)
+        await uploadCloudWithRetries();
+        onCloudData(fileName, dashboardData);
       } catch (err: any) {
         console.error(
           '[GoogleCloud] Error parsing/uploading cloud data:',
@@ -159,7 +203,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   }, [accessToken, dashboardId, getData, onCloudData, userId, dashboardName]);
 
   /**
-   * 3. Restore any previously monitored file/folder from localStorage
+   * Restore any previously monitored file/folder info from localStorage
    */
   useEffect(() => {
     const storedFile = localStorage.getItem('monitoredFile');
@@ -172,7 +216,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
     }
   }, []);
 
-  // 3a. If we want to join a room for single-file
+  // If a file is being monitored, join its socket room
   useEffect(() => {
     if (monitoredFile?.fileId && socket) {
       socket.emit('join-file', monitoredFile.fileId);
@@ -180,7 +224,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   }, [monitoredFile?.fileId, socket]);
 
   /**
-   * 4. Load Google Picker script
+   * Load Google Picker script
    */
   useEffect(() => {
     if (!window.gapi) {
@@ -196,7 +240,9 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
     }
   }, []);
 
-  // Utility to fetch short-lived Google access token from your backend
+  /**
+   * Utility: Fetch a short-lived Google access token from your backend.
+   */
   const getAccessToken = async (): Promise<string> => {
     try {
       const resp = await axios.get(`${BACKEND_URL}/auth/current-token?userId=${userId}`, {
@@ -214,7 +260,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   };
 
   /**
-   * 5. Open the Drive Picker (for file OR folder selection)
+   * Open the Drive Picker (allowing file or folder selection)
    */
   const openDrivePicker = async () => {
     if (!window.gapi || !window.google) {
@@ -244,9 +290,8 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   };
 
   /**
-   * 5.1. Picker callback
-   *      If folder => setupFolderMonitoring
-   *      If file => setupFileMonitoring
+   * Picker callback:
+   * If a folder is picked, call folder monitoring; if a file is picked, call file monitoring.
    */
   const pickerCallback = async (data: any) => {
     if (data.action === window.google.picker.Action.PICKED) {
@@ -255,7 +300,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       const mimeType = doc.mimeType;
 
       if (mimeType === 'application/vnd.google-apps.folder') {
-        // Folder
+        // Folder monitoring
         try {
           const resp = await axios.post(
             `${BACKEND_URL}/api/monitor/folder`,
@@ -263,8 +308,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
           alert('Monitoring started for folder.');
-          console.log('[GoogleCloud] setupFolderMonitoring response:', resp.data);
-
+          console.log('[GoogleCloud] Folder monitoring response:', resp.data);
           const monitored = {
             folderId: fileId,
             expiration: resp.data.channelExpiration,
@@ -280,7 +324,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
           alert(error.response?.data?.message || 'Failed to set up folder monitoring');
         }
       } else {
-        // Single file
+        // Single file monitoring
         try {
           const resp = await axios.post(
             `${BACKEND_URL}/api/monitor`,
@@ -288,8 +332,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
           alert('Monitoring started for file.');
-          console.log('[GoogleCloud] setupFileMonitoring response:', resp.data);
-
+          console.log('[GoogleCloud] File monitoring response:', resp.data);
           const monitored = {
             fileId,
             expiration: resp.data.channelExpiration,
@@ -297,8 +340,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
           };
           localStorage.setItem('monitoredFile', JSON.stringify(monitored));
           setMonitoredFile(monitored);
-
-          // Optionally join the socket room
+          // Optionally, join the socket room for the file
           socket?.emit('join-file', fileId);
         } catch (error: any) {
           console.error(
@@ -312,7 +354,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   };
 
   /**
-   * 6. Renew single-file channel
+   * Renew single-file channel.
    */
   const renewChannel = async () => {
     if (!monitoredFile) return;
@@ -323,8 +365,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
       alert('Channel renewed successfully');
-      console.log('[GoogleCloud] renewFileChannel response:', resp.data);
-
+      console.log('[GoogleCloud] Renew file channel response:', resp.data);
       const updated = {
         ...monitoredFile,
         expiration: resp.data.channelExpiration,
@@ -339,7 +380,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   };
 
   /**
-   * 7. Stop single-file monitoring
+   * Stop monitoring for a single file.
    */
   async function stopMonitoringFile(fileId: string) {
     try {
@@ -349,16 +390,18 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
       alert('Stopped monitoring file');
-      console.log('[GoogleCloud] stopFileMonitoring success');
-
+      console.log('[GoogleCloud] Stop file monitoring successful');
       setMonitoredFile(null);
       localStorage.removeItem('monitoredFile');
     } catch (error) {
-      console.error('[GoogleCloud] Error stopping monitoring:', error);
-      alert('Failed to stop monitoring');
+      console.error('[GoogleCloud] Error stopping file monitoring:', error);
+      alert('Failed to stop monitoring file');
     }
   }
 
+  /**
+   * Stop monitoring for a folder.
+   */
   async function stopMonitoringFolder(folderId: string) {
     try {
       await axios.post(
@@ -367,7 +410,6 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
       alert('Stopped monitoring folder');
-      // Clean up local references
       setMonitoredFolder(null);
       localStorage.removeItem('monitoredFolder');
     } catch (error) {
@@ -378,7 +420,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
 
   return (
     <div className="text-shades-white">
-      {/* 0. If not logged in, show a button/icon to log in */}
+      {/* If not logged in, show a button/icon to log in */}
       {!loggedIn && (
         <div onClick={() => login()}>
           <div
@@ -391,14 +433,14 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         </div>
       )}
 
-      {/* 1. If logged in, show a button to pick file/folder */}
+      {/* If logged in, show a button to open the Drive Picker */}
       {loggedIn && (
         <div style={{ marginTop: '1rem' }}>
           <button onClick={openDrivePicker}>Open Google Drive Picker (File or Folder)</button>
         </div>
       )}
 
-      {/* 2. If a file is being monitored, show info + renew + stop */}
+      {/* If a file is being monitored, show file info and options */}
       {monitoredFile && (
         <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #ccc' }}>
           <p>
@@ -414,7 +456,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         </div>
       )}
 
-      {/* 3. If a folder is being monitored, show info + stop */}
+      {/* If a folder is being monitored, show folder info and option to stop */}
       {monitoredFolder && (
         <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #ccc' }}>
           <p>

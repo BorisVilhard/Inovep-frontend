@@ -31,6 +31,17 @@ const CombinedChartDisplay: React.FC<CombinedChartDisplayProps> = ({
   return (
     <div className="mb-4 flex items-center">
       <div className="relative flex w-full justify-between transition-all duration-300 ease-in-out">
+        {/* Checkbox for selecting the entire combined chart */}
+        {overlayCondition && (
+          <div className="z-50 ml-[30px] flex items-center gap-3">
+            <input
+              type="checkbox"
+              className="h-5 w-5"
+              checked={isChecked}
+              onChange={() => handleCheck(documentCategory, '', combinedChart.id)}
+            />
+          </div>
+        )}
         {/* Overlay: pick which sub-charts remain in the combination */}
         {overlayCondition && (
           <div className="absolute z-50 flex flex-wrap items-center bg-shades-white bg-opacity-25 p-2 backdrop-blur-sm">
@@ -93,18 +104,6 @@ const CombinedChartDisplay: React.FC<CombinedChartDisplayProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Checkbox for selecting the entire combined chart */}
-      {overlayCondition && (
-        <div className="z-50 ml-2 flex items-center gap-3">
-          <input
-            type="checkbox"
-            className="h-5 w-5"
-            checked={isChecked}
-            onChange={() => handleCheck(documentCategory, '', combinedChart.id)}
-          />
-        </div>
-      )}
     </div>
   );
 };

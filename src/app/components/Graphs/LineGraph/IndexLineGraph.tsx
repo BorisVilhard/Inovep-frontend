@@ -1,4 +1,3 @@
-import { CombinedChart } from '@/types/types';
 import React from 'react';
 import {
   LineChart,
@@ -7,86 +6,88 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { formatDate } from '../../../../../utils/format';
+import { CombinedChart } from '@/types/types';
 
 interface Props {
   data: CombinedChart[];
   titleColors: { [title: string]: string };
 }
 
-// Helper to transform data
-const transformData = (combinedData: CombinedChart[]): any[] => {
-  const result: any[] = [];
+/**
+ * Pivot the combined data into one unified array.
+ *
+ * For each entry in the combinedData, this function creates or updates an object
+ * keyed by the formatted date, adding a property for the entry’s title with its value.
+ *
+ * Example output:
+ * [
+ *   { date: 'Jan 01', TitleA: 10, TitleB: 12 },
+ *   { date: 'Jan 02', TitleA: 15 },
+ *   { date: 'Jan 03', TitleB: 20 },
+ * ]
+ */
+const pivotData = (combinedData: CombinedChart[]): any[] => {
+  const pivot: Record<string, any> = {};
+
   combinedData.forEach((chart) => {
-    chart.data.forEach((entry, index) => {
-      if (typeof entry.value === 'number') {
-        result.push({
-          date: `${formatDate(entry.date)}-${index}`,
-          value: entry.value,
-          title: entry.title,
-        });
-      }
-    });
+    if (chart.data && Array.isArray(chart.data)) {
+      chart.data.forEach((entry) => {
+        if (typeof entry.value === 'number') {
+          // Format the date (use only the formatted date without an index)
+          const dateKey = formatDate(entry.date);
+          // Initialize the object for this date if it doesn't exist
+          if (!pivot[dateKey]) {
+            pivot[dateKey] = { date: dateKey };
+          }
+          // Add or update the property for the title with its value
+          pivot[dateKey][entry.title] = entry.value;
+        }
+      });
+    }
   });
-  return result;
+
+  return Object.values(pivot);
 };
 
-// Helper to group data by title
-const groupByTitle = (data: any[]) => {
-  return data.reduce(
-    (acc, item) => {
-      if (!acc[item.title]) {
-        acc[item.title] = [];
-      }
-      acc[item.title].push(item);
-      return acc;
-    },
-    {} as Record<string, any[]>,
-  );
-};
+const IndexLineGraph: React.FC<Props> = ({ data, titleColors }) => {
+  // Pivot the data so that each object contains a date and keys for each title.
+  const pivotedData = pivotData(data);
 
-const IndexLineGraph = (props: Props) => {
-  // Transform data
-  const structuredData = transformData(props.data);
-
-  // Group data by title
-  const groupedData = groupByTitle(structuredData);
+  // Debug: log the pivoted data to verify structure
+  // console.log('Pivoted Data:', pivotedData);
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <LineChart
-        data={structuredData}
-        margin={{
-          top: 5,
-          right: 30,
-          left: 20,
-          bottom: 5,
-        }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="date" />
-        <YAxis />
-        <Tooltip />
-
-        {/* Dynamically generate Lines */}
-        {Object.entries(groupedData).map(([title, data], index) => (
-          <Line
-            key={title}
-            type="monotone"
-            dataKey="value"
-            data={data}
-            name={title}
-            stroke={props.titleColors[title]}
-            strokeWidth={3}
-            fill={props.titleColors[title]}
-            activeDot={{ r: 8 }}
-          />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
+    <LineChart
+      data={pivotedData}
+      margin={{
+        top: 5,
+        right: 30,
+        left: 20,
+        bottom: 5,
+      }}
+      height={300}
+      width={300}
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="date" />
+      <YAxis />
+      <Tooltip />
+      {/* Render one Line per title */}
+      {Object.keys(titleColors).map((title) => (
+        <Line
+          key={title}
+          type="monotone"
+          dataKey={title} // This key should match the property name in the pivoted data
+          name={title}
+          stroke={titleColors[title]}
+          strokeWidth={3}
+          activeDot={{ r: 8 }}
+        />
+      ))}
+    </LineChart>
   );
 };
 
