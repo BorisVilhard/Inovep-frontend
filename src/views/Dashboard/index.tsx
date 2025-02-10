@@ -75,6 +75,8 @@ const Dashboard = () => {
           setDashboards(fetchedDashboards);
           if (fetchedDashboards.length > 0) {
             const firstDashboard = fetchedDashboards[0];
+            // Ensure dashboardData is defined
+            firstDashboard.dashboardData = firstDashboard.dashboardData || [];
             setDashboardData(firstDashboard);
             setDashboardId(firstDashboard._id);
             setCategories(firstDashboard.dashboardData);
