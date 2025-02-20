@@ -5,8 +5,8 @@ import { CombinedChart, ChartType } from '@/types/types';
 
 // Define supported chart types with literal types
 export const SUPPORTED_CHART_TYPES = {
-  individual: ['EntryLine', 'EntryArea', 'TradingLine', 'Bar'] as const,
-  combined: ['Pie', 'Radar', 'IndexBar', 'IndexArea', 'IndexLine'] as const,
+  individual: ['EntryLine', 'EntryArea', 'TradingLine', 'Bar', 'IndexBar'] as const,
+  combined: ['Pie', 'Radar', 'IndexBar', 'Bar', 'IndexArea', 'IndexLine'] as const,
 };
 
 // Define a TypeScript type based on SUPPORTED_CHART_TYPES

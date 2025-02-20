@@ -6,30 +6,13 @@ import axios from 'axios';
 import io, { Socket } from 'socket.io-client';
 import useAuthStore from '@/views/auth/api/userReponse';
 import Image from 'next/image';
+import classNames from 'classnames';
 import { DocumentData } from '@/types/types';
 
-interface FileUpdatedEvent {
-  fileId: string;
-  fileName: string;
-  message: string;
-  updateIndex?: number;
-  fullText?: string;
-}
-
-type Props = {
-  /** Called when new (preview) document data is available */
-  getData: (data: DocumentData) => void;
-  /** Called with final cloud data to be merged or handled in the parent */
-  onCloudData: (fileName: string, dashboardData: any[]) => void;
-  /** The current dashboard ID (if you are merging into an existing dashboard) */
-  dashboardId: string;
-  /** Optional: A fallback dashboard name (if you want to create new) */
-  dashboardName?: string;
-};
-
-const BACKEND_URL = 'http://localhost:3500'; // Adjust as needed
+const BACKEND_URL = 'http://localhost:3500'; // Adjust if needed
 const DEVELOPER_KEY = process.env.NEXT_PUBLIC_DEVELOPER_KEY || '';
 
+// Extend global Window interface for Google APIs
 declare global {
   interface Window {
     gapi: any;
@@ -37,50 +20,121 @@ declare global {
   }
 }
 
-export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboardName }: Props) {
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
+// Extend the file-updated event interface to include folderId
+interface FileUpdatedEvent {
+  fileId: string | null;
+  fileName: string | null;
+  message: string;
+  updateIndex?: number;
+  fullText?: string;
+  folderId?: string; // Present if the file came from a monitored folder
+}
 
-  // Single file monitoring state
+type GoogleCloudProps = {
+  /** Called when new (preview) document data is available */
+  getData: (data: DocumentData) => void;
+  /** Called with final cloud data to be merged or handled in the parent */
+  onCloudData: (fileName: string, dashboardData: any[]) => void;
+  /** The current dashboard ID (if merging into an existing dashboard) */
+  dashboardId: string;
+  /** Optional fallback dashboard name (if creating a new one) */
+  dashboardName?: string;
+};
+
+export default function GoogleCloud({
+  getData,
+  onCloudData,
+  dashboardId,
+  dashboardName,
+}: GoogleCloudProps) {
+  const [loggedIn, setLoggedIn] = useState<boolean>(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  // This state holds the folderId for folder monitoring.
+  const [folderId, setFolderId] = useState<string>('');
+  const [Id, setId] = useState<string>('');
+  // Local state for monitored file and folder info
   const [monitoredFile, setMonitoredFile] = useState<{
     fileId: string;
     expiration: number;
     expirationDate: string;
   } | null>(null);
-
-  // Folder monitoring state
   const [monitoredFolder, setMonitoredFolder] = useState<{
     folderId: string;
     expiration: number;
     expirationDate: string;
   } | null>(null);
+  // Track processed files so that if a file is updated again, we simply replace its data.
+  const [processedFiles, setProcessedFiles] = useState<string[]>([]);
 
-  // Auth store to get userId and accessToken
   const { id: userId, accessToken } = useAuthStore();
 
   /**
-   * Helper: Wait for required data to be available.
-   * We now check that dashboardData is an array and is not empty.
-   * Adjust retries and delay as needed.
+   * Polls the backend for complete file data until valid dashboardData is returned.
    */
-  const waitForRequiredData = async (
-    getDataFn: () => { fileId?: string; fileName?: string; dashboardData?: any[] },
-    retries = 5,
+  async function pollForCompleteFileData(
+    fileName: string,
+    fullText: string,
+    fileId: string | null,
+    folderId: string | null,
+    maxRetries = 10,
     delay = 500,
-  ) => {
-    for (let i = 0; i < retries; i++) {
-      const { fileId, fileName, dashboardData } = getDataFn();
-      if (fileId && fileName && Array.isArray(dashboardData) && dashboardData.length > 0) {
-        return { fileId, fileName, dashboardData };
+  ): Promise<{ fileId: string; fileName: string; dashboardData: any[]; folderId: string | null }> {
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      const parseResp = await axios.post(
+        `${BACKEND_URL}/data/users/${userId}/dashboard/${dashboardId}/cloudText`,
+        { fullText, fileName },
+        { headers },
+      );
+      const dashboard = parseResp.data.dashboard;
+      const dashboardData = dashboard?.dashboardData;
+      if (
+        dashboardData &&
+        Array.isArray(dashboardData) &&
+        dashboardData.length > 0 &&
+        fileId &&
+        fileName
+      ) {
+        return { fileId, fileName, dashboardData, folderId };
       }
+      attempt++;
       await new Promise((res) => setTimeout(res, delay));
     }
-    throw new Error('Required data not available after waiting.');
-  };
+    throw new Error('Incomplete file data after maximum retries');
+  }
 
   /**
-   * Google OAuth using @react-oauth/google (auth-code flow)
+   * Upload cloud data with retries.
    */
+  async function uploadCloudWithRetries(payload: any, maxRetries = 3, delay = 500): Promise<any> {
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      try {
+        const uploadResp = await axios.post(
+          `${BACKEND_URL}/data/users/${userId}/dashboard/uploadCloud`,
+          payload,
+          { headers },
+        );
+        return uploadResp;
+      } catch (err: any) {
+        if (
+          attempt < maxRetries - 1 &&
+          err.response?.data?.message === 'fileId, fileName, and dashboardData are required'
+        ) {
+          console.warn(`Upload attempt ${attempt + 1} failed. Retrying in ${delay}ms...`);
+          await new Promise((res) => setTimeout(res, delay));
+          attempt++;
+        } else {
+          throw err;
+        }
+      }
+    }
+    throw new Error('Upload failed after maximum retries');
+  }
+
+  // Setup Google OAuth login.
   const login = useGoogleLogin({
     flow: 'auth-code',
     scope:
@@ -89,10 +143,7 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       'https://www.googleapis.com/auth/spreadsheets',
     onSuccess: async (resp) => {
       try {
-        await axios.post(`${BACKEND_URL}/auth/exchange-code`, {
-          code: resp.code,
-          userId,
-        });
+        await axios.post(`${BACKEND_URL}/auth/exchange-code`, { code: resp.code, userId });
         setLoggedIn(true);
       } catch (error) {
         console.error('Error exchanging code:', error);
@@ -106,7 +157,8 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
   });
 
   /**
-   * Setup Socket.io connection once
+   * Setup the socket event listener.
+   * Including folderId in the dependency array ensures that the latest folderId is used.
    */
   useEffect(() => {
     const newSocket = io(BACKEND_URL, { transports: ['websocket'] });
@@ -114,81 +166,63 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       console.log('[GoogleCloud] Socket connected:', newSocket.id);
     });
 
-    // Listen for "file-updated" events
     newSocket.on('file-updated', async (data: FileUpdatedEvent) => {
       console.log('[GoogleCloud] "file-updated" event received:', data);
       if (!data.fullText) {
         console.log('[GoogleCloud] No fullText provided; ignoring event.');
         return;
       }
-
       try {
-        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
-        // First process the raw text via your /cloudText endpoint
-        const parseResp = await axios.post(
-          `${BACKEND_URL}/data/users/${userId}/dashboard/${dashboardId}/cloudText`,
-          { fullText: data.fullText, fileName: data.fileName },
-          { headers },
+        // Use folderId from event if provided, else fall back to current state.
+        const currentFolderId = data.folderId || folderId || null;
+        const completeData = await pollForCompleteFileData(
+          data.fileName || 'unknown',
+          data.fullText,
+          data.fileId,
+          currentFolderId,
+          10,
+          500,
         );
-        const { dashboard } = parseResp.data;
-        const dashboardData = dashboard.dashboardData;
+        if (currentFolderId) setId(currentFolderId);
 
-        // Provide a preview to the parent component
+        // Provide a preview to the parent.
         const tempDoc: DocumentData = {
           _id: `cloud-temp-${Date.now()}`,
           dashboardName: 'Cloud Temp (Preview)',
-          dashboardData,
+          dashboardData: completeData.dashboardData,
           files: [],
         };
         getData(tempDoc);
 
-        // Wait until we are sure that fileId, fileName, and (nonempty) dashboardData are ready.
-        const { fileId, fileName } = await waitForRequiredData(() => ({
-          fileId: data.fileId,
-          fileName: data.fileName,
-          dashboardData,
-        }));
-
-        // Try to upload the cloud data (with retry logic)
-        const uploadCloudWithRetries = async (attempt: number = 1): Promise<any> => {
-          try {
-            const uploadResp = await axios.post(
-              `${BACKEND_URL}/data/users/${userId}/dashboard/uploadCloud`,
-              {
-                dashboardId,
-                dashboardName,
-                fileId,
-                fileName,
-                dashboardData,
-              },
-              { headers },
-            );
-            return uploadResp;
-          } catch (err: any) {
-            // If we get the "required" error, wait and try again (up to 3 times)
-            if (
-              attempt < 3 &&
-              err.response?.data?.message === 'fileId, fileName, and dashboardData are required'
-            ) {
-              console.warn(
-                `Upload attempt ${attempt} failed due to missing data. Retrying in 500ms...`,
-              );
-              await new Promise((res) => setTimeout(res, 500));
-              return uploadCloudWithRetries(attempt + 1);
-            }
-            throw err;
-          }
+        // Build payload and explicitly include folderId.
+        const payload: any = {
+          dashboardId,
+          dashboardName,
+          fileId: completeData.fileId,
+          fileName: completeData.fileName,
+          dashboardData: completeData.dashboardData,
+          folderId: currentFolderId,
         };
 
-        // Attempt to upload (with retries if necessary)
-        await uploadCloudWithRetries();
-        onCloudData(fileName, dashboardData);
+        // If the event provided a folderId, update state.
+        if (data.folderId) setFolderId(data.folderId);
+        console.log('Using folderId:', payload.folderId);
+
+        // If this file hasn't been processed yet, upload it.
+        if (!processedFiles.includes(completeData.fileName)) {
+          await uploadCloudWithRetries(payload, 3, 500);
+          setProcessedFiles((prev) => [...prev, completeData.fileName]);
+        } else {
+          console.info(`File ${completeData.fileName} already processed. Replacing old data.`);
+        }
+        // Notify parent to update dashboard data (should replace data for the file).
+        onCloudData(completeData.fileName, completeData.dashboardData);
       } catch (err: any) {
         console.error(
-          '[GoogleCloud] Error parsing/uploading cloud data:',
+          '[GoogleCloud] Error processing file data:',
           err.response?.data || err.message,
         );
-        alert(err.response?.data?.message || 'Failed to parse/upload cloud data.');
+        alert(err.response?.data?.message || 'Failed to process and upload cloud data.');
       }
     });
 
@@ -200,11 +234,18 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
     return () => {
       newSocket.disconnect();
     };
-  }, [accessToken, dashboardId, getData, onCloudData, userId, dashboardName]);
+  }, [
+    accessToken,
+    dashboardId,
+    getData,
+    onCloudData,
+    userId,
+    dashboardName,
+    folderId,
+    processedFiles,
+  ]);
 
-  /**
-   * Restore any previously monitored file/folder info from localStorage
-   */
+  // Restore monitored file/folder info from localStorage on mount.
   useEffect(() => {
     const storedFile = localStorage.getItem('monitoredFile');
     if (storedFile) {
@@ -212,20 +253,22 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
     }
     const storedFolder = localStorage.getItem('monitoredFolder');
     if (storedFolder) {
-      setMonitoredFolder(JSON.parse(storedFolder));
+      const parsedFolder = JSON.parse(storedFolder);
+      setMonitoredFolder(parsedFolder);
+      if (parsedFolder.folderId) {
+        setFolderId(parsedFolder.folderId);
+      }
     }
   }, []);
 
-  // If a file is being monitored, join its socket room
+  // Join socket room for a monitored file.
   useEffect(() => {
     if (monitoredFile?.fileId && socket) {
       socket.emit('join-file', monitoredFile.fileId);
     }
   }, [monitoredFile?.fileId, socket]);
 
-  /**
-   * Load Google Picker script
-   */
+  // Load Google Picker script.
   useEffect(() => {
     if (!window.gapi) {
       const script = document.createElement('script');
@@ -240,10 +283,8 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
     }
   }, []);
 
-  /**
-   * Utility: Fetch a short-lived Google access token from your backend.
-   */
-  const getAccessToken = async (): Promise<string> => {
+  // Helper: Retrieve a short-lived access token from your backend.
+  async function getAccessToken(): Promise<string> {
     try {
       const resp = await axios.get(`${BACKEND_URL}/auth/current-token?userId=${userId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -257,27 +298,22 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       alert('Failed to retrieve access token. Please log in again.');
       return '';
     }
-  };
+  }
 
-  /**
-   * Open the Drive Picker (allowing file or folder selection)
-   */
-  const openDrivePicker = async () => {
+  // Open the Google Drive Picker.
+  async function openDrivePicker() {
     if (!window.gapi || !window.google) {
       alert('Google Drive Picker not ready yet');
       return;
     }
-
     const googleAccessToken = await getAccessToken();
     if (!googleAccessToken) {
       alert('No valid token for Drive Picker');
       return;
     }
-
     const docsView = new window.google.picker.DocsView()
       .setIncludeFolders(true)
       .setSelectFolderEnabled(true);
-
     const picker = new window.google.picker.PickerBuilder()
       .addView(docsView)
       .setOrigin(window.location.origin)
@@ -285,32 +321,27 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
       .setDeveloperKey(DEVELOPER_KEY)
       .setCallback(pickerCallback)
       .build();
-
     picker.setVisible(true);
-  };
+  }
 
-  /**
-   * Picker callback:
-   * If a folder is picked, call folder monitoring; if a file is picked, call file monitoring.
-   */
-  const pickerCallback = async (data: any) => {
+  // Picker callback: if a folder is picked, set up folder monitoring; otherwise, file monitoring.
+  async function pickerCallback(data: any) {
     if (data.action === window.google.picker.Action.PICKED) {
       const doc = data.docs[0];
-      const fileId = doc.id;
+      const pickedFileId = doc.id;
       const mimeType = doc.mimeType;
-
       if (mimeType === 'application/vnd.google-apps.folder') {
-        // Folder monitoring
         try {
+          setFolderId(pickedFileId);
           const resp = await axios.post(
             `${BACKEND_URL}/api/monitor/folder`,
-            { folderId: fileId, userId },
+            { folderId: pickedFileId, userId },
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
           alert('Monitoring started for folder.');
           console.log('[GoogleCloud] Folder monitoring response:', resp.data);
           const monitored = {
-            folderId: fileId,
+            folderId: pickedFileId,
             expiration: resp.data.channelExpiration,
             expirationDate: resp.data.expirationDate,
           };
@@ -324,24 +355,22 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
           alert(error.response?.data?.message || 'Failed to set up folder monitoring');
         }
       } else {
-        // Single file monitoring
         try {
           const resp = await axios.post(
             `${BACKEND_URL}/api/monitor`,
-            { fileId, userId },
+            { fileId: pickedFileId, userId },
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
           alert('Monitoring started for file.');
           console.log('[GoogleCloud] File monitoring response:', resp.data);
           const monitored = {
-            fileId,
+            fileId: pickedFileId,
             expiration: resp.data.channelExpiration,
             expirationDate: resp.data.expirationDate,
           };
           localStorage.setItem('monitoredFile', JSON.stringify(monitored));
           setMonitoredFile(monitored);
-          // Optionally, join the socket room for the file
-          socket?.emit('join-file', fileId);
+          socket?.emit('join-file', pickedFileId);
         } catch (error: any) {
           console.error(
             '[GoogleCloud] Error setting up file monitoring:',
@@ -351,125 +380,23 @@ export default function GoogleCloud({ getData, onCloudData, dashboardId, dashboa
         }
       }
     }
-  };
-
-  /**
-   * Renew single-file channel.
-   */
-  const renewChannel = async () => {
-    if (!monitoredFile) return;
-    try {
-      const resp = await axios.post(
-        `${BACKEND_URL}/api/monitor/renew`,
-        { fileId: monitoredFile.fileId, userId },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      alert('Channel renewed successfully');
-      console.log('[GoogleCloud] Renew file channel response:', resp.data);
-      const updated = {
-        ...monitoredFile,
-        expiration: resp.data.channelExpiration,
-        expirationDate: resp.data.expirationDate,
-      };
-      setMonitoredFile(updated);
-      localStorage.setItem('monitoredFile', JSON.stringify(updated));
-    } catch (err: any) {
-      console.error('[GoogleCloud] Error renewing channel:', err.response?.data || err.message);
-      alert('Failed to renew channel');
-    }
-  };
-
-  /**
-   * Stop monitoring for a single file.
-   */
-  async function stopMonitoringFile(fileId: string) {
-    try {
-      await axios.post(
-        `${BACKEND_URL}/api/monitor/stop`,
-        { fileId, userId },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      alert('Stopped monitoring file');
-      console.log('[GoogleCloud] Stop file monitoring successful');
-      setMonitoredFile(null);
-      localStorage.removeItem('monitoredFile');
-    } catch (error) {
-      console.error('[GoogleCloud] Error stopping file monitoring:', error);
-      alert('Failed to stop monitoring file');
-    }
-  }
-
-  /**
-   * Stop monitoring for a folder.
-   */
-  async function stopMonitoringFolder(folderId: string) {
-    try {
-      await axios.post(
-        `${BACKEND_URL}/api/monitor/folder/stop`,
-        { folderId, userId },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      alert('Stopped monitoring folder');
-      setMonitoredFolder(null);
-      localStorage.removeItem('monitoredFolder');
-    } catch (error) {
-      console.error('[GoogleCloud] Error stopping folder monitoring:', error);
-      alert('Failed to stop monitoring folder');
-    }
   }
 
   return (
-    <div className="text-shades-white">
-      {/* If not logged in, show a button/icon to log in */}
-      {!loggedIn && (
-        <div onClick={() => login()}>
+    <div>
+      <div className="text-shades-white">
+        <div onClick={() => (!loggedIn ? login() : openDrivePicker())}>
           <div
-            className="flex h-[43px] w-[43px] cursor-pointer items-center justify-center rounded-lg bg-shades-white p-[11px] hover:bg-neutral-20"
-            style={{ border: '1px solid #aaa' }}
+            className={classNames(
+              'flex h-[43px] w-[43px] cursor-pointer items-center justify-center rounded-lg p-[11px] hover:bg-neutral-20',
+              { 'bg-green-400': loggedIn, 'bg-shades-white': !loggedIn },
+            )}
           >
-            <Image src={'/img/googleDrive.png'} width={85} height={85} alt="Google Drive" />
+            <Image src="/img/googleDrive.png" width={85} height={85} alt="Google Drive" />
           </div>
-          <p>Click the icon to log in with Google</p>
         </div>
-      )}
-
-      {/* If logged in, show a button to open the Drive Picker */}
-      {loggedIn && (
-        <div style={{ marginTop: '1rem' }}>
-          <button onClick={openDrivePicker}>Open Google Drive Picker (File or Folder)</button>
-        </div>
-      )}
-
-      {/* If a file is being monitored, show file info and options */}
-      {monitoredFile && (
-        <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #ccc' }}>
-          <p>
-            <strong>Monitoring File ID:</strong> {monitoredFile.fileId}
-          </p>
-          <p>
-            <strong>Channel Expires:</strong> {monitoredFile.expirationDate}
-          </p>
-          <button onClick={renewChannel} style={{ marginRight: 8 }}>
-            Renew Channel
-          </button>
-          <button onClick={() => stopMonitoringFile(monitoredFile.fileId)}>Stop Monitoring</button>
-        </div>
-      )}
-
-      {/* If a folder is being monitored, show folder info and option to stop */}
-      {monitoredFolder && (
-        <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #ccc' }}>
-          <p>
-            <strong>Monitoring Folder ID:</strong> {monitoredFolder.folderId}
-          </p>
-          <p>
-            <strong>Channel Expires:</strong> {monitoredFolder.expirationDate}
-          </p>
-          <button onClick={() => stopMonitoringFolder(monitoredFolder.folderId)}>
-            Stop Monitoring Folder
-          </button>
-        </div>
-      )}
+      </div>
+      <div className="text-shades-white">Current folderId: {Id}</div>
     </div>
   );
 }

@@ -26,9 +26,6 @@ export const ChartWrapper = (props: Props) => {
           >
             Change / Combine Chart
           </Button>
-          <Button size="small" type="error">
-            Delete
-          </Button>
         </div>
       )}
       <div

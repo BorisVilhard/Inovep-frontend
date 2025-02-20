@@ -205,7 +205,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         // Create new combined chart
         const newCombinedChart: CombinedChart = {
           id: `combined-${Date.now()}`,
-          chartType: appliedChartTypes[category] || 'IndexLine', // fallback to a default
+          chartType: appliedChartTypes[category] || 'IndexLine',
           chartIds: individualChartIds,
           data: getCombinedChartData(category, individualChartIds),
         };

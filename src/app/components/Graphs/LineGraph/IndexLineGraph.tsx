@@ -1,3 +1,4 @@
+import { Entry } from '@/types/types';
 import React from 'react';
 import {
   LineChart,
@@ -9,85 +10,77 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { formatDate } from '../../../../../utils/format';
-import { CombinedChart } from '@/types/types';
 
-interface Props {
-  data: CombinedChart[];
+type Props = {
+  data: Entry[];
   titleColors: { [title: string]: string };
-}
-
-/**
- * Pivot the combined data into one unified array.
- *
- * For each entry in the combinedData, this function creates or updates an object
- * keyed by the formatted date, adding a property for the entry’s title with its value.
- *
- * Example output:
- * [
- *   { date: 'Jan 01', TitleA: 10, TitleB: 12 },
- *   { date: 'Jan 02', TitleA: 15 },
- *   { date: 'Jan 03', TitleB: 20 },
- * ]
- */
-const pivotData = (combinedData: CombinedChart[]): any[] => {
-  const pivot: Record<string, any> = {};
-
-  combinedData.forEach((chart) => {
-    if (chart.data && Array.isArray(chart.data)) {
-      chart.data.forEach((entry) => {
-        if (typeof entry.value === 'number') {
-          // Format the date (use only the formatted date without an index)
-          const dateKey = formatDate(entry.date);
-          // Initialize the object for this date if it doesn't exist
-          if (!pivot[dateKey]) {
-            pivot[dateKey] = { date: dateKey };
-          }
-          // Add or update the property for the title with its value
-          pivot[dateKey][entry.title] = entry.value;
-        }
-      });
-    }
-  });
-
-  return Object.values(pivot);
+};
+const formatData = (data: Entry[]) => {
+  return data
+    .filter((entry) => typeof entry.value === 'number')
+    .map((entry, index) => ({
+      // Create a unique key that combines the formatted date and an index
+      uniqueDate: `${formatDate(entry.date)}_${index}`,
+      // This is what we want to display on the axis
+      displayDate: formatDate(entry.date),
+      // We want each entry to only have the value for its title.
+      // If there’s no entry for a particular title, it will be undefined.
+      title: entry.title,
+      value: Math.round(entry.value * 100) / 100,
+    }));
 };
 
 const IndexLineGraph: React.FC<Props> = ({ data, titleColors }) => {
-  // Pivot the data so that each object contains a date and keys for each title.
-  const pivotedData = pivotData(data);
+  const formattedData = formatData(data);
 
-  // Debug: log the pivoted data to verify structure
-  // console.log('Pivoted Data:', pivotedData);
+  // For each title, filter out the entries that belong to it.
+  // We then need to sort by the original date (if necessary)
+  const linesData = Object.keys(titleColors).reduce(
+    (acc, title) => {
+      acc[title] = formattedData
+        .filter((d) => d.title === title)
+        // Optionally, sort by displayDate (if your format allows lexical sort)
+        .sort((a, b) => a.displayDate.localeCompare(b.displayDate));
+      return acc;
+    },
+    {} as { [title: string]: typeof formattedData },
+  );
 
   return (
-    <LineChart
-      data={pivotedData}
-      margin={{
-        top: 5,
-        right: 30,
-        left: 20,
-        bottom: 5,
-      }}
-      height={300}
-      width={300}
-    >
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="date" />
-      <YAxis />
-      <Tooltip />
-      {/* Render one Line per title */}
-      {Object.keys(titleColors).map((title) => (
-        <Line
-          key={title}
-          type="monotone"
-          dataKey={title} // This key should match the property name in the pivoted data
-          name={title}
-          stroke={titleColors[title]}
-          strokeWidth={3}
-          activeDot={{ r: 8 }}
-        />
-      ))}
-    </LineChart>
+    <div style={{ width: '100%', height: 200 }}>
+      <ResponsiveContainer>
+        <LineChart>
+          <CartesianGrid strokeDasharray="3 3" />
+          {/* We use a customized XAxis. One approach is to have a composite x-axis that shows the date,
+              even though the underlying data points are spread across multiple arrays.
+              Alternatively, you could overlay multiple LineCharts that share the same x-axis. */}
+          <XAxis
+            dataKey="uniqueDate"
+            tickFormatter={(value) => {
+              // value is like "Jan 01_3", so split on underscore to get the display date.
+              return value.split('_')[0];
+            }}
+          />
+          <YAxis />
+          <Tooltip
+            formatter={(value, name) => [value, name]}
+            labelFormatter={(label) => label.split('_')[0]}
+          />
+          {Object.keys(linesData).map((title) => (
+            <Line
+              key={title}
+              type="monotone"
+              data={linesData[title]}
+              dataKey="value"
+              name={title}
+              stroke={titleColors[title]}
+              strokeWidth={3}
+              dot={{ r: 3 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 

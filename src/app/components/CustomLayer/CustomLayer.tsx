@@ -46,13 +46,13 @@ export const CustomDragLayer: React.FC = () => {
   return (
     <div style={layerStyles}>
       <div style={getItemStyles(currentOffset)}>
-        {hoveredTitle === 'match' ? (
+        {hoveredTitle === 'match' || undefined || null ? (
           <div className="flex h-[150px] max-w-[200px] flex-col items-center rounded-lg border border-gray-300 bg-gray-700 p-2 shadow-md">
             <span className="mb-[20px] text-shades-white">{item?.item?.title}</span>
             <Image
               src={item.item.imageUrl}
-              width={item.item.imageWidth || 100}
-              height={item.item.imageHeight || 100}
+              width={item.item.imageWidth || 150}
+              height={item.item.imageHeight || 150}
               alt="chart-icon"
               className="mb-[20px]"
             />

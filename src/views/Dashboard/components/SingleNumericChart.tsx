@@ -61,8 +61,13 @@ const SingleNumericChart: React.FC<SingleNumericChartProps> = ({
             <h1 className="mb-1 text-[16px] font-bold">{items.data[0]?.title}:</h1>
             <div className="ml-[5%]">
               {generateChart({
-                chartType: items.chartType,
-                data: getDataType(items.chartType, summaryData, combinedData, items.data),
+                chartType: items.chartType === 'IndexBar' ? 'Bar' : items.chartType,
+                data: getDataType(
+                  items.chartType === 'IndexBar' ? 'Bar' : items.chartType,
+                  summaryData,
+                  combinedData,
+                  items.data,
+                ),
               })}
             </div>
           </div>
@@ -90,7 +95,9 @@ const SingleNumericChart: React.FC<SingleNumericChartProps> = ({
                 {(!editMode || categoryEdit !== documentCategory) && dataItem.title}
               </h1>
               <div className="relative w-fit rounded-md bg-primary-90 p-4 text-center">
-                <h1 className="text-xl text-shades-white">{dataItem.value}</h1>
+                <h1 className="truncate text-ellipsis text-xl text-shades-white">
+                  {dataItem.value}
+                </h1>
               </div>
             </div>
           ))}

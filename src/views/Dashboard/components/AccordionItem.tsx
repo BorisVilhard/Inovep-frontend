@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useDrag } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import classNames from 'classnames';
@@ -36,21 +36,23 @@ export const AccordionItem: React.FC<Props> = ({
   imageWidth,
   dataType = undefined,
 }) => {
-  const assignedDataType = (): 'entry' | 'index' => {
+  // Returns the valid data types for this chart type.
+  // For IndexBar, both 'entry' and 'index' are allowed.
+  const getAssignableDataTypes = (): Array<'entry' | 'index'> => {
     switch (type) {
+      case 'IndexBar':
+        return ['entry', 'index'];
       case 'Pie':
       case 'Radar':
-      case 'IndexBar':
       case 'IndexArea':
       case 'IndexLine':
-        return 'index';
+        return ['index'];
       case 'EntryArea':
       case 'EntryLine':
-      case 'Bar':
       case 'TradingLine':
-        return 'entry';
+        return ['entry'];
       default:
-        return 'entry';
+        return ['entry'];
     }
   };
 
@@ -72,7 +74,7 @@ export const AccordionItem: React.FC<Props> = ({
     }),
   });
 
-  // Suppress the default drag preview
+  // Suppress the default drag preview.
   useEffect(() => {
     preview(getEmptyImage(), { captureDraggingState: true });
   }, [preview]);
@@ -82,12 +84,15 @@ export const AccordionItem: React.FC<Props> = ({
       setChartData(type);
     }
   };
-  const notAssignableChartType = assignedDataType() !== dataType && dataType !== undefined;
+
+  const validDataTypes = getAssignableDataTypes();
+  const notAssignableChartType = dataType !== undefined && !validDataTypes.includes(dataType);
+
   return (
     <div
       onClick={handleClick}
-      ref={drag} // Attach the drag ref to the DOM node
-      draggable={dataType !== undefined && dataType === assignedDataType()}
+      ref={drag} // Attach the drag ref to the DOM node.
+      draggable={dataType === undefined || validDataTypes.includes(dataType)}
       className={classNames(
         'relative flex h-[120px] w-[170px] flex-col items-center justify-between rounded-md border-2 border-solid border-gray-700 bg-gray-700',
         {
@@ -113,8 +118,8 @@ export const AccordionItem: React.FC<Props> = ({
       <span className="mt-[10px] text-[15px]">{title}</span>
       <Image
         src={imageUrl}
-        width={imageWidth ? imageWidth : 100}
-        height={imageHeight ? imageHeight : 100}
+        width={imageWidth ?? 100}
+        height={imageHeight ?? 100}
         alt="chart-icon"
         className="mb-[20px]"
       />

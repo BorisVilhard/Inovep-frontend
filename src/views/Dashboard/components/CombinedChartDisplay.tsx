@@ -75,7 +75,7 @@ const CombinedChartDisplay: React.FC<CombinedChartDisplayProps> = ({
           })}
         >
           {/* Sub-chart titles */}
-          <div className="flex gap-2">
+          <div className="flex w-full gap-2 overflow-x-scroll">
             {combinedChart.chartIds.map((id) => {
               const entry = categoryData?.mainData.find((chart) => chart.id === id);
               if (!entry) return null;
@@ -84,7 +84,7 @@ const CombinedChartDisplay: React.FC<CombinedChartDisplayProps> = ({
               return (
                 <h1
                   key={id}
-                  className="mb-1 text-[16px] font-bold"
+                  className="mb-1 text-nowrap text-[16px] font-bold"
                   style={{ color: colorMap[title] }}
                 >
                   {title}

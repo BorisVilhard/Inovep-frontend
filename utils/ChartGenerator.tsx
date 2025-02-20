@@ -25,7 +25,7 @@ export const generateChart = ({ chartType, data, titleColors }: GenerateChartPro
       if (!titleColors) {
         titleColors = getTitleColors(data as CombinedChart[]);
       }
-      return <BarGraph type="summary" data={data as Entry[]} />;
+      return <IndexLineGraph data={data as CombinedChart[]} titleColors={titleColors} />;
     case 'TradingLine':
       return <TradingLineChart data={data as Entry[]} />;
     case 'Pie':

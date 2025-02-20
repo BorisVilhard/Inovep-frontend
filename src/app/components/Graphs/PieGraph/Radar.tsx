@@ -1,7 +1,6 @@
 import { Entry } from '@/types/types';
 import React, { FC, useEffect, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
-import { colors } from '../../../../../utils/getTitleColors';
 
 const RADIAN = Math.PI / 180;
 
@@ -26,27 +25,41 @@ const needle = (
   oR: number,
   color: string,
 ): JSX.Element[] => {
+  // Calculate the total of all slice values
   let total = 0;
   data.forEach((v) => {
     total += getNumericValue(v.value);
   });
 
-  let cumulativeValue = 0;
-  let targetAngle = 0;
-
-  data.forEach((entry) => {
-    const value = getNumericValue(entry.value);
-    cumulativeValue += value;
-    const percentage = cumulativeValue / total;
-    targetAngle = 180 * percentage;
+  // Find the slice with the maximum (greatest) value
+  let maxIndex = 0;
+  let maxValue = -Infinity;
+  data.forEach((entry, index) => {
+    const numericValue = getNumericValue(entry.value);
+    if (numericValue > maxValue) {
+      maxValue = numericValue;
+      maxIndex = index;
+    }
   });
 
-  // Cap the angle to a maximum of 180 degrees
-  targetAngle = Math.min(targetAngle, 180);
+  // Compute the cumulative sum for slices before the max slice
+  let cumulative = 0;
+  for (let i = 0; i < maxIndex; i++) {
+    cumulative += getNumericValue(data[i].value);
+  }
 
+  // Determine the center of the max slice by adding half its value
+  const sliceCenterValue = cumulative + maxValue / 2;
+
+  // Convert the center value into an angle.
+  // Our pie covers 180° (from 180° on the left to 0° on the right), so:
+  let centerAngle = 180 - (sliceCenterValue / total) * 180;
+  centerAngle = Math.min(Math.max(centerAngle, 0), 180); // ensure within [0,180]
+
+  // Compute needle coordinates using the computed centerAngle
   const length = (iR + 2 * oR) / 3;
-  const sin = Math.sin(RADIAN * targetAngle);
-  const cos = Math.cos(RADIAN * targetAngle);
+  const sin = Math.sin(RADIAN * centerAngle);
+  const cos = Math.cos(RADIAN * centerAngle);
   const r = 5;
   const x0 = cx;
   const y0 = cy;
@@ -63,7 +76,7 @@ const needle = (
     <circle cx={x0} cy={y0} r={r} fill={color} stroke="none" key="needle-base" />,
     <path
       key="needle-path"
-      d={`M${xba} ${yba}L${xbb} ${ybb}L${xp} ${yp}L${xba} ${yba}`}
+      d={`M${xba} ${yba} L${xbb} ${ybb} L${xp} ${yp} L${xba} ${yba}`}
       stroke="none"
       fill={color}
     />,

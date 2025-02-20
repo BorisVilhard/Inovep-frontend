@@ -10,6 +10,7 @@ import useAuthStore from '@/views/auth/api/userReponse';
 import ChatMessages from './features/ChatMessages';
 import ChatSidebar from './features/ChatSidebar';
 import { generateId } from './utils/generateId';
+import { DashboardCategory } from '@/types/types';
 
 export interface Message {
   id: string;
@@ -24,6 +25,96 @@ export interface Chat {
   dashboardName: string;
   messages: Message[];
   fileContent?: string;
+}
+
+// Helper function to restructure dashboard data.
+function restructureData(dashboardData: DashboardCategory[] | null) {
+  // If no valid data is provided, return an empty structure.
+  if (!dashboardData || !Array.isArray(dashboardData)) {
+    return { dashboardData: [] };
+  }
+
+  const finalData: {
+    dashboardData: {
+      categoryName: string;
+      data: { title: string; value: number | string; date: string }[];
+    }[];
+  } = {
+    dashboardData: [],
+  };
+
+  dashboardData.forEach((category) => {
+    // Use a Map to group entries by title.
+    type GroupType = {
+      title: string;
+      isNumber: boolean;
+      // For numeric entries.
+      sum: number;
+      // For string entries.
+      firstString: string;
+      // Latest date among all entries (assumes ISO formatted date strings)
+      latestDate: string;
+    };
+
+    const groupMap = new Map<string, GroupType>();
+
+    category.mainData.forEach((mainItem) => {
+      mainItem.data.forEach((entry) => {
+        // If this title is not already in our map, initialize it.
+        if (!groupMap.has(entry.title)) {
+          if (typeof entry.value === 'number') {
+            groupMap.set(entry.title, {
+              title: entry.title,
+              isNumber: true,
+              sum: entry.value,
+              firstString: '',
+              latestDate: entry.date,
+            });
+          } else {
+            groupMap.set(entry.title, {
+              title: entry.title,
+              isNumber: false,
+              sum: 0,
+              firstString: entry.value,
+              latestDate: entry.date,
+            });
+          }
+        } else {
+          const group = groupMap.get(entry.title)!;
+          // Update the latest date if the current entry's date is more recent.
+          if (new Date(entry.date) > new Date(group.latestDate)) {
+            group.latestDate = entry.date;
+          }
+          // Sum values if they are numbers.
+          if (group.isNumber && typeof entry.value === 'number') {
+            group.sum += entry.value;
+          }
+          // For non-numeric values, keep the first encountered string.
+        }
+      });
+    });
+
+    // Build the aggregated entries.
+    const aggregatedData: { title: string; value: number | string; date: string }[] = [];
+    groupMap.forEach((group) => {
+      if (group.isNumber) {
+        aggregatedData.push({ title: group.title, value: group.sum, date: group.latestDate });
+      } else {
+        aggregatedData.push({
+          title: group.title,
+          value: group.firstString,
+          date: group.latestDate,
+        });
+      }
+    });
+
+    finalData.dashboardData.push({
+      categoryName: category.categoryName,
+      data: aggregatedData,
+    });
+  });
+
+  return finalData;
 }
 
 function DocumentChat() {
@@ -67,7 +158,10 @@ function DocumentChat() {
 
           if (dashboardItems.length > 0) {
             const defaultDashboard = dashboardItems[dashboardItems.length - 1];
-            setSelectedDashboard(defaultDashboard);
+            setSelectedDashboard({
+              id: defaultDashboard.id,
+              name: defaultDashboard.name?.toString() || '',
+            });
             handleDashboardSelect(defaultDashboard.id);
           }
         } else if (response.status === 204) {
@@ -110,7 +204,7 @@ function DocumentChat() {
   const handleDashboardSelect = async (dashboardId: string) => {
     const dashboard = dashboards.find((d) => d.id === dashboardId);
     if (dashboard) {
-      setSelectedDashboard(dashboard);
+      setSelectedDashboard({ id: dashboard.id, name: dashboard.name?.toString() || '' });
 
       try {
         const response = await axios.get(
@@ -123,10 +217,11 @@ function DocumentChat() {
         );
 
         if (response && response.status === 200) {
-          setDashboardData(response.data.dashboardData);
+          // Ensure we have a valid array before restructuring
+          const receivedData = response.data.dashboardData || [];
+          setDashboardData(restructureData(receivedData));
 
           const existingChat = chats.find((chat) => chat.dashboardId === dashboardId);
-
           if (existingChat) {
             loadChatData(existingChat._id);
           } else {
@@ -163,10 +258,7 @@ function DocumentChat() {
         setChatId(chatData._id);
         setMessages(chatData.messages);
         setFileContent(chatData.fileContent || '');
-        setSelectedDashboard({
-          id: chatData.dashboardId,
-          name: chatData.dashboardName,
-        });
+        setSelectedDashboard({ id: chatData.dashboardId, name: chatData.dashboardName });
 
         if (chatData.dashboardId) {
           try {
@@ -180,7 +272,8 @@ function DocumentChat() {
             );
 
             if (dashboardResponse && dashboardResponse.status === 200) {
-              setDashboardData(dashboardResponse.data.dashboardData);
+              const receivedData = dashboardResponse.data.dashboardData || [];
+              setDashboardData(restructureData(receivedData));
               console.log('Dashboard data loaded:', dashboardResponse.data.dashboardData);
             } else {
               console.error('Failed to load dashboard data:', dashboardResponse?.data);

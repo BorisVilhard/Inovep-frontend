@@ -12,8 +12,8 @@ import ChartOverlay from '@/views/Dashboard/components/ChartOverlay'; // <-- adj
  * Adjust these if you have them declared elsewhere.
  */
 export const SUPPORTED_CHART_TYPES = {
-  individual: ['EntryLine', 'EntryArea', 'TradingLine', 'Bar'] as const,
-  combined: ['Pie', 'Radar', 'IndexBar', 'IndexArea', 'IndexLine'] as const,
+  individual: ['EntryLine', 'EntryArea', 'TradingLine', 'Bar', 'IndexBar'] as const,
+  combined: ['Pie', 'Radar', 'IndexBar', 'Bar', 'IndexArea', 'IndexLine'] as const,
 };
 
 /**
@@ -56,7 +56,7 @@ interface DragItem {
     imageUrl: string;
     imageWidth?: number;
     imageHeight?: number;
-    dataType?: 'entry' | 'index'; // optional
+    dataType?: 'entry' | 'index';
   };
 }
 
@@ -100,12 +100,13 @@ const DropTarget: React.FC<DropTargetProps> = ({
     hover: (draggedItem: DragItem) => {
       // 1) Identify if dragged item is combined or individual
       const draggedIsCombined = getChartTypeFromItem(draggedItem.item) === 'combined';
-
       // 2) Identify if the chart we are hovering over is combined or individual
       const hoveredIsCombined = isChartCombined(chartId, category, combinedData);
 
       // 3) Compare them => "match" if both are same; "no match" if different
-      const matchStatus = draggedIsCombined === hoveredIsCombined ? 'match' : 'no match';
+      const isIndexBar = draggedItem.item.type === 'IndexBar';
+      const matchStatus =
+        isIndexBar || draggedIsCombined === hoveredIsCombined ? 'match' : 'no match';
       setHoveredTitle(matchStatus);
 
       // If you need additional logic in the parent, call onHover:
