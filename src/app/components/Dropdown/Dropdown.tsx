@@ -20,6 +20,11 @@ interface Props {
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   width?: string;
+  /** 
+   * Optional key for storing the selected ID in localStorage. 
+   * If not provided, no localStorage is used.
+   */
+  localStorageKey?: string; 
 }
 
 const Dropdown: React.FC<Props> = ({
@@ -33,11 +38,23 @@ const Dropdown: React.FC<Props> = ({
   onEdit,
   onDelete,
   width,
+  localStorageKey,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedItemName, setSelectedItemName] = useState<ReactNode>(placeholder);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string>();
+
+
+  useEffect(() => {
+    if (!selectedId && localStorageKey) {
+      const storedId = localStorage.getItem(localStorageKey);
+      if (storedId) {
+        onSelect?.(storedId);
+      }
+    }
+  }, []);
+
 
   useEffect(() => {
     if (selectedId) {
@@ -54,20 +71,24 @@ const Dropdown: React.FC<Props> = ({
     setIsOpen(!isOpen);
   };
 
+  // --------------------------------
+  // When user selects, store if we have a localStorageKey
+  // --------------------------------
   const handleSelect = (id: string) => {
-    if (onSelect) {
-      onSelect(id);
+    if (localStorageKey) {
+      localStorage.setItem(localStorageKey, id);
     }
+    onSelect?.(id);
     setIsOpen(false);
   };
 
+  // Close if user clicks outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -75,22 +96,23 @@ const Dropdown: React.FC<Props> = ({
   }, []);
 
   return (
-    <div ref={dropdownRef} data-qa="dropdown" className={`relative ${className} ${width}`}>
+    <div ref={dropdownRef} data-qa="dropdown" className={`relative ${className || ''} ${width || ''}`}>
+      {/* Dropdown trigger */}
       <div
-        style={{ width: width }}
+        style={{ width }}
         className={classNames(
-          'paragraph-P1-regular  flex h-[48px] cursor-pointer items-center justify-between border-[2px]',
+          'paragraph-P1-regular flex h-[48px] cursor-pointer items-center justify-between border-[2px]',
           {
             'rounded-b-[0px] rounded-t-[20px]': isOpen,
             'rounded-full': !isOpen,
             'border-primary-20 bg-gray-900 p-[12px] text-white': type === 'primary',
             'border-none bg-shades-white p-[12px] text-shades-black': type === 'secondary',
-          },
+          }
         )}
         onClick={handleToggle}
       >
         <div
-          style={{ width: width }}
+          style={{ width }}
           className={classNames('mr-[10px] flex w-full items-center gap-[5px] truncate', {
             'text-white': type === 'primary',
             'text-shades-black': type === 'secondary',
@@ -102,6 +124,7 @@ const Dropdown: React.FC<Props> = ({
         {isOpen ? <AiOutlineUp /> : <AiOutlineDown />}
       </div>
 
+      {/* Dropdown menu items */}
       {isOpen && (
         <ul
           data-qa="select-options"
@@ -110,7 +133,7 @@ const Dropdown: React.FC<Props> = ({
             {
               'w-full rounded-b-md border-x-[1px] border-b-[1px]': size === 'small',
               'left-1/2 w-[50vw] -translate-x-1/2 transform rounded border-[1px]': size === 'large',
-            },
+            }
           )}
         >
           {items.map((item) =>
@@ -146,7 +169,7 @@ const Dropdown: React.FC<Props> = ({
               >
                 <span className="flex-1 truncate">{item.name}</span>
               </li>
-            ),
+            )
           )}
         </ul>
       )}

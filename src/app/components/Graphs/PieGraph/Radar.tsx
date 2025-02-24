@@ -1,136 +1,109 @@
+/* eslint-disable no-shadow */
 import { Entry } from '@/types/types';
-import React, { FC, useEffect, useRef, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip } from 'recharts';
+import React from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 const RADIAN = Math.PI / 180;
 
 interface Props {
-  data: Entry[];
-  titleColors: { [title: string]: string };
+	data: Entry[];
+	titleColors: { [title: string]: string };
 }
-
-const iR = 80;
-const oR = 160;
+const cx = 150;
+const cy = 200;
+const iR = '60%';
+const oR = '120%';
 
 const getNumericValue = (value: string | number): number => {
-  const numericValue = typeof value === 'string' ? Number(value) : value;
-  return isNaN(numericValue) ? 0 : numericValue;
+	const numericValue = typeof value === 'string' ? Number(value) : value;
+	return isNaN(numericValue) ? 0 : numericValue;
 };
 
 const needle = (
-  data: Entry[],
-  cx: number,
-  cy: number,
-  iR: number,
-  oR: number,
-  color: string,
-): JSX.Element[] => {
-  // Calculate the total of all slice values
-  let total = 0;
-  data.forEach((v) => {
-    total += getNumericValue(v.value);
-  });
+	data: Entry[],
+	cx: number,
+	cy: number,
+	iR: number,
+	oR: number,
+	color: string
+) => {
+	// Total of all slice values
+	const total = data.reduce((acc, cur) => acc + getNumericValue(cur.value), 0);
 
-  // Find the slice with the maximum (greatest) value
-  let maxIndex = 0;
-  let maxValue = -Infinity;
-  data.forEach((entry, index) => {
-    const numericValue = getNumericValue(entry.value);
-    if (numericValue > maxValue) {
-      maxValue = numericValue;
-      maxIndex = index;
-    }
-  });
+	// Find the slice with the greatest value
+	let maxIndex = 0;
+	let maxValue = -Infinity;
+	data.forEach((d, index) => {
+		if (getNumericValue(d.value) > maxValue) {
+			maxValue = getNumericValue(d.value);
+			maxIndex = index;
+		}
+	});
 
-  // Compute the cumulative sum for slices before the max slice
-  let cumulative = 0;
-  for (let i = 0; i < maxIndex; i++) {
-    cumulative += getNumericValue(data[i].value);
-  }
+	// Calculate the cumulative value before the max slice
+	let cumulative = 0;
+	for (let i = 0; i < maxIndex; i++) {
+		cumulative += getNumericValue(data[i].value);
+	}
 
-  // Determine the center of the max slice by adding half its value
-  const sliceCenterValue = cumulative + maxValue / 2;
+	// Find the center value for the max slice
+	const sliceCenterValue = cumulative + maxValue / 2;
 
-  // Convert the center value into an angle.
-  // Our pie covers 180° (from 180° on the left to 0° on the right), so:
-  let centerAngle = 180 - (sliceCenterValue / total) * 180;
-  centerAngle = Math.min(Math.max(centerAngle, 0), 180); // ensure within [0,180]
+	// Compute the center angle in degrees (pie drawn from 180° to 0°)
+	const centerAngle = 180 - (sliceCenterValue / total) * 180;
 
-  // Compute needle coordinates using the computed centerAngle
-  const length = (iR + 2 * oR) / 3;
-  const sin = Math.sin(RADIAN * centerAngle);
-  const cos = Math.cos(RADIAN * centerAngle);
-  const r = 5;
-  const x0 = cx;
-  const y0 = cy;
+	// Compute needle coordinates (using a similar approach to before)
+	const length = (iR + 2 * oR) / 3;
+	const radianAngle = centerAngle * RADIAN;
+	const r = 5;
+	const x0 = cx + 5; // offset for the center circle
+	const y0 = cy + 5;
 
-  const xba = x0 + r * sin;
-  const yba = y0 - r * cos;
-  const xbb = x0 - r * sin;
-  const ybb = y0 + r * cos;
+	// Use a negative angle so that 0° points right (consistent with your original)
+	const sin = Math.sin(-radianAngle);
+	const cos = Math.cos(-radianAngle);
+	const xba = x0 + r * sin;
+	const yba = y0 - r * cos;
+	const xbb = x0 - r * sin;
+	const ybb = y0 + r * cos;
+	const xp = x0 + length * cos;
+	const yp = y0 + length * sin;
 
-  const xp = x0 + length * cos;
-  const yp = y0 + length * sin;
-
-  return [
-    <circle cx={x0} cy={y0} r={r} fill={color} stroke="none" key="needle-base" />,
-    <path
-      key="needle-path"
-      d={`M${xba} ${yba} L${xbb} ${ybb} L${xp} ${yp} L${xba} ${yba}`}
-      stroke="none"
-      fill={color}
-    />,
-  ];
+	return [
+		<circle key='circle' cx={x0} cy={y0} r={r} fill={color} stroke='none' />,
+		<path
+			key='needle'
+			d={`M${xba} ${yba} L${xbb} ${ybb} L${xp} ${yp} L${xba} ${yba}`}
+			stroke='none'
+			fill={color}
+		/>,
+	];
 };
 
-const Radar: FC<Props> = ({ data, titleColors }) => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 500, height: 250 });
-
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (chartContainerRef.current) {
-        const width = chartContainerRef.current.clientWidth;
-        const height = width / 2;
-        setDimensions({ width, height });
-      }
-    };
-
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-
-  const cx = dimensions.width / 2;
-  const cy = dimensions.height - 20;
-
-  return (
-    <div ref={chartContainerRef} style={{ width: '100%', height: 'auto', minHeight: '200px' }}>
-      {dimensions.width > 0 && dimensions.height > 0 && (
-        <PieChart width={dimensions.width} height={dimensions.height}>
-          <Pie
-            dataKey="value"
-            startAngle={180}
-            endAngle={0}
-            data={data}
-            cx={cx}
-            cy={cy}
-            innerRadius={iR}
-            outerRadius={oR}
-            fill="#8884d8"
-            stroke="none"
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={titleColors[entry.title] || '#8884d8'} />
-            ))}
-          </Pie>
-          <Tooltip />
-          {needle(data, cx, cy, iR, oR, '#d0d000')}
-        </PieChart>
-      )}
-    </div>
-  );
+const Radar = ({ data, titleColors }: Props) => {
+	return (
+		<ResponsiveContainer style={{ marginLeft: 20 }} height={250} width='100%'>
+			<PieChart>
+				<Pie
+					dataKey='value'
+					startAngle={180}
+					endAngle={0}
+					data={data}
+					cx={cx}
+					cy={cy}
+					innerRadius={iR}
+					outerRadius={oR}
+					fill='#8884d8'
+					stroke='none'
+				>
+					{data.map((entry, index) => (
+						<Cell key={`cell-${index}`} fill={titleColors[entry.title]} />
+					))}
+				</Pie>
+				{needle(data, cx, cy, 80, 160, '#d0d000')}
+			</PieChart>
+		</ResponsiveContainer>
+	);
 };
 
 export default Radar;

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useDrop } from 'react-dnd';
 
 import { ChartType, CombinedChart } from '@/types/types'; // <-- adjust path as needed
@@ -92,33 +92,56 @@ const DropTarget: React.FC<DropTargetProps> = ({
 }) => {
   const setHoveredTitle = useDragStore((state) => state.setHoveredTitle);
 
-  const [{ isOver, canDrop }, drop] = useDrop({
-    accept: 'CHART_ITEM',
-    drop: (draggedItem: DragItem) => {
-      onDrop(draggedItem.item, category, chartId);
-    },
-    hover: (draggedItem: DragItem) => {
-      // 1) Identify if dragged item is combined or individual
-      const draggedIsCombined = getChartTypeFromItem(draggedItem.item) === 'combined';
-      // 2) Identify if the chart we are hovering over is combined or individual
-      const hoveredIsCombined = isChartCombined(chartId, category, combinedData);
+  const [{ isOver, canDrop }, drop] = useDrop<DragItem, unknown, { isOver: boolean; canDrop: boolean }>(
+    () => ({
+      accept: 'CHART_ITEM',
+      drop: (draggedItem) => {
+        onDrop(draggedItem.item, category, chartId);
+      },
+      hover: (draggedItem, monitor) => {
+        // Only set hover state if we're over this specific target (shallow = true).
+        if (!monitor.isOver({ shallow: true })) return;
 
-      // 3) Compare them => "match" if both are same; "no match" if different
-      const isIndexBar = draggedItem.item.type === 'IndexBar';
-      const matchStatus =
-        isIndexBar || draggedIsCombined === hoveredIsCombined ? 'match' : 'no match';
-      setHoveredTitle(matchStatus);
+        // 1) Identify if dragged item is combined or individual
+        const draggedIsCombined = getChartTypeFromItem(draggedItem.item) === 'combined';
+        // 2) Identify if the chart we are hovering over is combined or individual
+        const hoveredIsCombined = isChartCombined(chartId, category, combinedData);
 
-      // If you need additional logic in the parent, call onHover:
-      if (onHover) {
-        onHover(draggedItem.item, category, chartId);
-      }
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
+        // 3) Compare them => "match" if both are the same; otherwise "no match"
+        const isIndexBar = draggedItem.item.type === 'IndexBar';
+        const matchStatus =  isIndexBar ||
+          draggedIsCombined === hoveredIsCombined ? 'match' : 'no match';
+
+        setHoveredTitle(matchStatus);
+
+        // If you need additional logic in the parent, call onHover:
+        if (onHover) {
+          onHover(draggedItem.item, category, chartId);
+        }
+      },
+      collect: (monitor) => ({
+        isOver: monitor.isOver({ shallow: true }),
+        canDrop: monitor.canDrop(),
+      }),
     }),
-  });
+  );
+
+  /**
+   * If we're **not** over any drop target at all (this one or others),
+   * we want to set "none". This ensures that once we leave all drop targets,
+   * hoveredTitle resets to "none".
+   *
+   * NOTE: If you have multiple DropTargets close together, you might see
+   * brief "none" flickers when jumping from one target to another. If that
+   * becomes an issue, you can fine-tune this logic or keep a global
+   * “hovered over any target?” approach.
+   */
+  useEffect(() => {
+    if (!isOver) {
+      setHoveredTitle('none');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOver]);
 
   // We'll show an overlay if the user is hovering and can drop,
   // or if there's some external condition passed via overlayCondition.
