@@ -41,8 +41,9 @@ export default function GoogleCloud({
 	dashboardId,
 	dashboardName,
 }: GoogleCloudProps) {
-	const [loggedIn, setLoggedIn] = useState<boolean>(false);
 	const [socket, setSocket] = useState<Socket | null>(null);
+	const store = useAuthStore();
+	const [loggedIn, setLoggedIn] = useState<boolean>(false);
 	const [folderId, setFolderId] = useState<string>('');
 	const [monitoredFile, setMonitoredFile] = useState<{
 		fileId: string;
@@ -297,6 +298,32 @@ export default function GoogleCloud({
 			document.body.appendChild(script);
 		}
 	}, []);
+
+	useEffect(() => {
+		if ((store.firstTimeLogin, socket && userId && dashboardId)) {
+			const checkUpdates = async () => {
+				const resp = await axios.get(
+					`${BACKEND_URL}/data/users/${userId}/dashboard/${dashboardId}/check-monitored-files`,
+					{ headers: { Authorization: `Bearer ${accessToken}` } }
+				);
+				if (resp.data.updatedFiles.length > 0) {
+					const updatedDashboard = await axios.get(
+						`${BACKEND_URL}/data/users/${userId}/dashboard/${dashboardId}`,
+						{ headers: { Authorization: `Bearer ${accessToken}` } }
+					);
+					onCloudData(updatedDashboard.data);
+				}
+			};
+			checkUpdates();
+		}
+	}, [
+		store.firstTimeLogin,
+		socket,
+		userId,
+		dashboardId,
+		accessToken,
+		onCloudData,
+	]);
 
 	async function getAccessToken(): Promise<string> {
 		try {
