@@ -270,12 +270,11 @@ const Dashboard = () => {
 		}
 	};
 
-	// -----------------------------------------
-	// 8. Editing / Deleting Entire Dashboards
-	// -----------------------------------------
-	const existingDashboardNames = dashboards
-		.map((d) => d.dashboardName)
-		.filter((name) => name !== dashboardToEdit?.dashboardName);
+	const existingDashboardNames = Array.isArray(dashboards)
+		? dashboards
+				.map((d) => d.dashboardName)
+				.filter((name) => name !== dashboardToEdit?.dashboardName)
+		: [];
 
 	const handleEditClick = (id: string) => {
 		const dash = dashboards.find((d) => d._id === id);
@@ -505,10 +504,14 @@ const Dashboard = () => {
 				<Dropdown
 					type='secondary'
 					size='large'
-					items={dashboards.map((db) => ({
-						id: db._id,
-						name: db.dashboardName,
-					}))}
+					items={
+						Array.isArray(dashboards)
+							? dashboards.map((db) => ({
+									id: db._id,
+									name: db.dashboardName,
+							  }))
+							: []
+					}
 					onSelect={handleDashboardSelect}
 					selectedId={dashboardId}
 					onEdit={handleEditClick}
@@ -521,7 +524,11 @@ const Dashboard = () => {
 					getData={handleNewData}
 					dashboardId={dashboardId}
 					files={files}
-					existingDashboardNames={dashboards.map((d) => d.dashboardName)}
+					existingDashboardNames={
+						Array.isArray(dashboards)
+							? dashboards.map((d) => d.dashboardName)
+							: []
+					}
 					onCreateDashboard={handleNewDashboard}
 					existingDashboardData={
 						dashboardData ? dashboardData.dashboardData : []

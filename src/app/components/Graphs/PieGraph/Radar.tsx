@@ -1,4 +1,3 @@
-/* eslint-disable no-shadow */
 import { Entry } from '@/types/types';
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -9,8 +8,9 @@ interface Props {
 	data: Entry[];
 	titleColors: { [title: string]: string };
 }
+
 const cx = 150;
-const cy = 200;
+const cy = 170;
 const iR = '60%';
 const oR = '120%';
 
@@ -27,10 +27,8 @@ const needle = (
 	oR: number,
 	color: string
 ) => {
-	// Total of all slice values
 	const total = data.reduce((acc, cur) => acc + getNumericValue(cur.value), 0);
 
-	// Find the slice with the greatest value
 	let maxIndex = 0;
 	let maxValue = -Infinity;
 	data.forEach((d, index) => {
@@ -82,8 +80,8 @@ const needle = (
 
 const Radar = ({ data, titleColors }: Props) => {
 	return (
-		<ResponsiveContainer style={{ marginLeft: 20 }} height={250} width='100%'>
-			<PieChart>
+		<ResponsiveContainer style={{ marginLeft: 40 }} height={250} width='100%'>
+			<PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
 				<Pie
 					dataKey='value'
 					startAngle={180}

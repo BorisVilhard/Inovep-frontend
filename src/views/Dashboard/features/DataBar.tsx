@@ -15,7 +15,7 @@ import { IoMdDownload } from 'react-icons/io';
 import { GrDocumentExcel } from 'react-icons/gr';
 import { BsFiletypeCsv } from 'react-icons/bs';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
-import GoogleCloud from '@/app/components/testModal/GoogleCloud';
+// import GoogleCloud from '@/app/components/testModal/GoogleCloud';
 
 interface DataBarProps {
 	getFileName: (name: string) => void;
@@ -171,14 +171,14 @@ const DataBar: React.FC<DataBarProps> = ({
 		await handleUploadToDashboard(dashboardId, file);
 	};
 
-	const handleCloudData = (updatedDashboard: DocumentData) => {
-		if (!dashboardId) {
-			setPendingUpload(true);
-			setIsModalOpen(true);
-			return;
-		}
-		getData(updatedDashboard);
-	};
+	// const handleCloudData = (updatedDashboard: DocumentData) => {
+	// 	if (!dashboardId) {
+	// 		setPendingUpload(true);
+	// 		setIsModalOpen(true);
+	// 		return;
+	// 	}
+	// 	getData(updatedDashboard);
+	// };
 
 	function downloadCSV(restructured: ReturnType<typeof restructureData>) {
 		let csv = 'categoryName,title,value\n';
@@ -252,15 +252,15 @@ const DataBar: React.FC<DataBarProps> = ({
 					/>
 					<label
 						htmlFor='file'
-						className='flex h-12 w-12 cursor-pointer items-center justify-center rounded-lg bg-white p-2 hover:bg-gray-200'
+						className='flex h-11 w-15 cursor-pointer items-center justify-center rounded-lg bg-white p-2 hover:bg-gray-200'
 					>
 						<MdOutlineAttachFile size={25} />
 					</label>
-					<GoogleCloud
+					{/* <GoogleCloud
 						getData={getData}
 						onCloudData={handleCloudData}
 						dashboardId={dashboardId || ''}
-					/>
+					/> */}
 					<Dropdown
 						width='170px'
 						items={uploadedFilesItems}
