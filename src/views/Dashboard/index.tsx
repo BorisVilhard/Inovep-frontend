@@ -1,8 +1,10 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import * as XLSX from 'xlsx'; // Added import for xlsx
 
 import DataBar from './features/DataBar';
 import ComponentDrawer from './components/ComponentDrawer';
@@ -40,8 +42,10 @@ const BACKEND_URL = 'http://localhost:3500';
 const Dashboard = () => {
 	const [dashboardData, setDashboardData] = useState<DocumentData | null>(null);
 	const [isLoading, setLoading] = useState<boolean>(false);
+	const [isUploading, setIsUploading] = useState(false);
 	const [fileName, setFileName] = useState<string>('');
 	const [editMode, setEditMode] = useState(false);
+	const [cancelUpload, setCancelUpload] = useState(false);
 
 	const { id: userId, accessToken } = useStore();
 
@@ -70,7 +74,6 @@ const Dashboard = () => {
 	const [differenceData, setDifferenceData] = useState<any>(null);
 	const [pendingFile, setPendingFile] = useState<File | null>(null);
 	const [isApplyingPendingData, setIsApplyingPendingData] = useState(false);
-	const [isUploading, setIsUploading] = useState(false);
 
 	const [isEditDashboardModalOpen, setIsEditDashboardModalOpen] =
 		useState(false);
@@ -82,7 +85,17 @@ const Dashboard = () => {
 	const [dashboardToDelete, setDashboardToDelete] =
 		useState<DocumentData | null>(null);
 
-	// Set up your form
+	const [uploadProgress, setUploadProgress] = useState<{
+		currentChunk: number;
+		totalChunks: number;
+		isChunking: boolean;
+	}>({
+		currentChunk: 0,
+		totalChunks: 0,
+		isChunking: false,
+	});
+
+	// Set up form
 	const methods = useForm<DashboardFormValues>({
 		resolver: zodResolver(DashboardFormSchema),
 		defaultValues: {
@@ -103,6 +116,7 @@ const Dashboard = () => {
 			})
 			.catch((err) => {
 				console.error('Error fetching dashboards:', err);
+				alert('Failed to fetch dashboards. Please try again.');
 			});
 	}, [userId, accessToken]);
 
@@ -160,54 +174,297 @@ const Dashboard = () => {
 		localStorage.setItem('dashboardId', dashboard._id);
 	};
 
-	const handleNewData = (newData: DocumentData) => {
-		setDashboardData(newData);
-		setCategories(newData.dashboardData || []);
-		setFiles(newData.files || []);
-		setCurrentCategory(newData.dashboardData[0]?.categoryName);
-		reset({ dashboardData: newData.dashboardData || [] });
+	const handleNewData = useCallback(
+		(newData: DocumentData) => {
+			try {
+				if (!newData || !newData._id) {
+					console.error('Invalid dashboard data received:', newData);
+					return;
+				}
 
-		// Also store new data’s ID if it’s different
-		localStorage.setItem('dashboardId', newData._id);
+				console.log('Processing new dashboard data:', {
+					_id: newData._id,
+					dashboardName: newData.dashboardName,
+					dashboardDataLength: newData.dashboardData?.length,
+					filesLength: newData.files?.length,
+				});
 
-		// Re-initialize combined/summary data
-		const initialCombinedData: { [key: string]: CombinedChart[] } = {};
-		const initialSummaryData: { [key: string]: Entry[] } = {};
-		const initialAppliedChartTypes: { [key: string]: ChartType } = {};
-		const initialCheckedIds: { [key: string]: string[] } = {};
+				setDashboardData(newData);
+				setCategories(newData.dashboardData || []);
+				setFiles(newData.files || []);
+				setCurrentCategory(
+					newData.dashboardData?.[0]?.categoryName || undefined
+				);
+				reset({ dashboardData: newData.dashboardData || [] });
+				localStorage.setItem('dashboardId', newData._id);
 
-		newData.dashboardData.forEach((category) => {
-			if (category.combinedData) {
-				initialCombinedData[category.categoryName] = category.combinedData.map(
-					(chart) => ({
-						id: chart.id,
-						chartType: chart.chartType,
-						chartIds: chart.chartIds,
-						data: chart.data,
-					})
+				const initialCombinedData: { [key: string]: CombinedChart[] } = {};
+				const initialSummaryData: { [key: string]: Entry[] } = {};
+				const initialAppliedChartTypes: { [key: string]: ChartType } = {};
+				const initialCheckedIds: { [key: string]: string[] } = {};
+
+				(newData.dashboardData || []).forEach((category) => {
+					if (!category || !category.categoryName) {
+						console.warn('Skipping invalid category:', category);
+						return;
+					}
+					if (category.combinedData) {
+						initialCombinedData[category.categoryName] =
+							category.combinedData.map((chart) => ({
+								id: chart.id,
+								chartType: chart.chartType,
+								chartIds: chart.chartIds,
+								data: chart.data,
+							}));
+					}
+					if (category.summaryData) {
+						initialSummaryData[category.categoryName] = category.summaryData;
+					}
+					if (category.appliedChartType) {
+						initialAppliedChartTypes[category.categoryName] =
+							category.appliedChartType;
+					}
+					if (category.checkedIds) {
+						initialCheckedIds[category.categoryName] = category.checkedIds;
+					}
+				});
+
+				setCombinedData(initialCombinedData);
+				setSummaryData(initialSummaryData);
+				setAppliedChartTypes(initialAppliedChartTypes);
+				setCheckedIds(initialCheckedIds);
+			} catch (error) {
+				console.error('Error in handleNewData:', error);
+				alert('Failed to process dashboard data. Please try again.');
+			}
+		},
+		[reset]
+	);
+
+	const handleUploadToDashboard = async (dashId: string, localFile: File) => {
+		setLoading(true);
+		setIsUploading(true);
+		try {
+			const MAX_SIZE = 0.5 * 1024 * 1024; // 0.5MB threshold for chunking
+			const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunk size for better performance
+			const MAX_RETRIES = 3;
+			const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB max file size
+
+			// Validate inputs
+			if (!dashId) throw new Error('Dashboard ID is missing');
+			if (!userId) throw new Error('User ID is missing');
+			if (!localFile) throw new Error('File is missing');
+			if (!accessToken) throw new Error('Access token is missing');
+
+			// Validate file type and size
+			const allowedTypes = [
+				'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+				'application/vnd.ms-excel',
+				'text/csv',
+				'application/pdf',
+				'image/png',
+				'image/jpeg',
+			];
+			if (!allowedTypes.includes(localFile.type)) {
+				throw new Error(
+					'Unsupported file type. Please upload a PDF, PNG, JPEG, Excel, or CSV file.'
 				);
 			}
-			if (category.summaryData) {
-				initialSummaryData[category.categoryName] = category.summaryData;
+			if (localFile.size === 0) {
+				throw new Error('File is empty. Please upload a valid file.');
 			}
-			if (category.appliedChartType) {
-				initialAppliedChartTypes[category.categoryName] =
-					category.appliedChartType;
+			if (localFile.size > MAX_FILE_SIZE) {
+				throw new Error('File is too large. Maximum size is 100MB.');
 			}
-			if (category.checkedIds) {
-				initialCheckedIds[category.categoryName] = category.checkedIds;
-			}
-		});
 
-		setCombinedData(initialCombinedData);
-		setSummaryData(initialSummaryData);
-		setAppliedChartTypes(initialAppliedChartTypes);
-		setCheckedIds(initialCheckedIds);
+			console.log('Upload attempt details:', {
+				dashboardId: dashId,
+				userId,
+				fileName: localFile.name,
+				fileSize: localFile.size,
+				fileType: localFile.type || 'unknown',
+				isChunked: localFile.size > MAX_SIZE,
+			});
+
+			if (
+				localFile.type ===
+					'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+				localFile.type === 'application/vnd.ms-excel' ||
+				localFile.type === 'text/csv'
+			) {
+				try {
+					const arrayBuffer = await localFile.arrayBuffer();
+					XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+					console.log('File pre-validation successful');
+				} catch (err) {
+					throw new Error(`Invalid Excel/CSV file: ${err}`);
+				}
+			}
+
+			if (localFile.size > MAX_SIZE) {
+				// Chunked upload
+				const totalChunks = Math.ceil(localFile.size / CHUNK_SIZE);
+				setUploadProgress({ currentChunk: 0, totalChunks, isChunking: true });
+
+				const chunkId = `chunk-${Date.now()}-${Math.random()
+					.toString(36)
+					.substring(2, 15)}`;
+				let uploadedChunks = 0;
+
+				for (let start = 0; start < localFile.size; start += CHUNK_SIZE) {
+					if (cancelUpload) {
+						setCancelUpload(false);
+						throw new Error('Upload cancelled by user');
+					}
+
+					const end = Math.min(start + CHUNK_SIZE, localFile.size);
+					const chunk = localFile.slice(start, end);
+					const formData = new FormData();
+					formData.append('chunk', chunk, localFile.name);
+					formData.append('dashboardId', dashId);
+					formData.append('chunkId', chunkId);
+					formData.append('chunkIndex', String(uploadedChunks));
+					formData.append('totalChunks', String(totalChunks));
+					formData.append('fileName', localFile.name);
+					formData.append('fileType', localFile.type);
+
+					console.log('Uploading chunk:', {
+						chunkIndex: uploadedChunks,
+						totalChunks,
+						start,
+						end,
+						chunkSize: end - start,
+					});
+
+					let attempt = 0;
+					let success = false;
+					while (attempt < MAX_RETRIES && !success) {
+						try {
+							const response = await axios.post(
+								`${BACKEND_URL}/data/users/${userId}/dashboard/upload-chunk`,
+								formData,
+								{
+									headers: {
+										Authorization: `Bearer ${accessToken}`,
+										'Content-Type': 'multipart/form-data',
+									},
+								}
+							);
+
+							uploadedChunks += 1;
+							setUploadProgress({
+								currentChunk: uploadedChunks,
+								totalChunks,
+								isChunking: true,
+							});
+
+							success = true;
+						} catch (err: any) {
+							attempt += 1;
+							if (attempt >= MAX_RETRIES) {
+								throw new Error(
+									`Failed to upload chunk ${uploadedChunks} after ${MAX_RETRIES} attempts: ${err.message}`
+								);
+							}
+							console.warn(
+								`Retry ${attempt} for chunk ${uploadedChunks}: ${err.message}`
+							);
+							await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1s before retry
+						}
+					}
+				}
+
+				// Finalize chunked upload
+				const response = await axios.post(
+					`${BACKEND_URL}/data/users/${userId}/dashboard/finalize-chunk`,
+					{
+						chunkId,
+						dashboardId: dashId,
+						fileName: localFile.name,
+						totalChunks,
+					},
+					{
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+							'Content-Type': 'application/json',
+						},
+					}
+				);
+
+				console.log('Chunked file finalized:', response.data);
+				setUploadProgress({
+					currentChunk: 0,
+					totalChunks: 0,
+					isChunking: false,
+				});
+				handleNewData(response.data.dashboard);
+			} else {
+				// Single file upload
+				const formData = new FormData();
+				formData.append('file', localFile);
+				formData.append('dashboardId', dashId);
+
+				console.log('Single file FormData:', {
+					file: `${localFile.name} (type: ${localFile.type}, size: ${localFile.size})`,
+					dashboardId: formData.get('dashboardId'),
+				});
+
+				const response = await axios.post(
+					`${BACKEND_URL}/data/users/${userId}/dashboard/upload`,
+					formData,
+					{
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+							'Content-Type': 'multipart/form-data',
+						},
+					}
+				);
+				console.log('Single file uploaded:', response.data);
+				handleNewData(response.data.dashboard);
+			}
+		} catch (err: any) {
+			console.error('Full upload error details:', {
+				message: err.message,
+				responseData: err.response?.data,
+				status: err.response?.status,
+				headers: err.response?.headers,
+				request: {
+					method: err.config?.method,
+					url: err.config?.url,
+					headers: err.config?.headers,
+				},
+			});
+			let errorMessage = 'Network error. Please try again.';
+			if (err.message.includes('cancelled')) {
+				errorMessage = 'Upload cancelled.';
+			} else if (err.response?.status === 500) {
+				errorMessage = err.response.data.error || 'Server processing error';
+			} else if (err.response?.status === 400) {
+				errorMessage = err.response.data.error || 'Invalid file uploaded';
+			} else if (err.response?.data?.message?.includes('chunk')) {
+				errorMessage = `Chunk upload failed: ${err.response.data.message}`;
+			} else if (err.message.includes('Invalid Excel/CSV file')) {
+				errorMessage = err.message;
+			} else if (err.message.includes('File is too large')) {
+				errorMessage = err.message;
+			} else if (err.message.includes('Unsupported file type')) {
+				errorMessage = err.message;
+			}
+			alert(`Upload failed: ${errorMessage}`);
+			setUploadProgress({ currentChunk: 0, totalChunks: 0, isChunking: false });
+		} finally {
+			setLoading(false);
+			setIsUploading(false);
+		}
 	};
 
-	// -----------------------------------------
-	// 6. Data difference logic
-	// -----------------------------------------
+	const handleCancelUpload = () => {
+		setCancelUpload(true);
+		setUploadProgress({ currentChunk: 0, totalChunks: 0, isChunking: false });
+		setIsUploading(false);
+		setLoading(false);
+	};
+
 	const handleDataDifferencesDetected = (differences: any, file: File) => {
 		setDifferenceData(differences);
 		setPendingFile(file);
@@ -222,27 +479,14 @@ const Dashboard = () => {
 		setIsApplyingPendingData(true);
 
 		try {
-			const formData = new FormData();
-			formData.append('file', pendingFile);
-			formData.append('dashboardId', dashboardId);
-
-			const { data } = await axios.post(
-				`${BACKEND_URL}/data/users/${userId}/dashboard/upload`,
-				formData,
-				{
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						'Content-Type': 'multipart/form-data',
-					},
-				}
-			);
-			handleNewData(data.dashboard);
+			await handleUploadToDashboard(dashboardId, pendingFile);
 		} catch (error) {
-			console.error('Error uploading data:', error);
+			console.error('Error uploading pending data:', error);
 		} finally {
 			setIsUploading(false);
 			setLoading(false);
 			setPendingFile(null);
+			setIsApplyingPendingData(false);
 			setIsDifferenceModalOpen(false);
 		}
 	};
@@ -252,9 +496,6 @@ const Dashboard = () => {
 		setIsDifferenceModalOpen(false);
 	};
 
-	// -----------------------------------------
-	// 7. Deleting a file by filename
-	// -----------------------------------------
 	const deleteDataByFileName = async (fileNameToDelete: string) => {
 		if (!dashboardId || !userId) return;
 		try {
@@ -267,6 +508,7 @@ const Dashboard = () => {
 			handleNewData(data.dashboard);
 		} catch (error) {
 			console.error('Error deleting data:', error);
+			alert(`Failed to delete file: `);
 		}
 	};
 
@@ -306,14 +548,12 @@ const Dashboard = () => {
 				}
 			);
 
-			// Update in local array
 			setDashboards((prev) =>
 				prev.map((dbItem) =>
 					dbItem._id === data.dashboard._id ? data.dashboard : dbItem
 				)
 			);
 
-			// If this is the currently selected dashboard, also update state
 			if (dashboardData && dashboardData._id === data.dashboard._id) {
 				setDashboardData(data.dashboard);
 			}
@@ -323,6 +563,11 @@ const Dashboard = () => {
 			console.error(
 				'Error updating dashboard name:',
 				error.response || error.message
+			);
+			alert(
+				`Failed to update dashboard name: ${
+					error.response?.data?.message || error.message
+				}`
 			);
 		}
 	};
@@ -337,13 +582,11 @@ const Dashboard = () => {
 				}
 			);
 
-			// Remove locally
 			const updated = dashboards.filter(
 				(dbItem) => dbItem._id !== dashboardToDelete._id
 			);
 			setDashboards(updated);
 
-			// If you deleted your currently selected dashboard, pick another or clear
 			if (dashboardData && dashboardData._id === dashboardToDelete._id) {
 				if (updated.length > 0) {
 					const first = updated[0];
@@ -354,7 +597,6 @@ const Dashboard = () => {
 					reset({ dashboardData: first.dashboardData || [] });
 					localStorage.setItem('dashboardId', first._id);
 				} else {
-					// No dashboards left
 					setDashboardData(null);
 					setDashboardId(undefined);
 					setCategories([]);
@@ -370,16 +612,17 @@ const Dashboard = () => {
 				'Error deleting dashboard:',
 				error.response || error.message
 			);
+			alert(
+				`Failed to delete dashboard: ${
+					error.response?.data?.message || error.message
+				}`
+			);
 		}
 	};
 
-	// -----------------------------------------
-	// 9. Aggregation logic (sample usage)
-	// -----------------------------------------
 	const aggregateData = useAggregateData();
 	const { setChartData } = useUpdateChartStore();
 
-	// When the main dashboard data changes, we re-initialize combinedData & summaryData
 	useEffect(() => {
 		if (!dashboardData) return;
 
@@ -388,25 +631,28 @@ const Dashboard = () => {
 		const initApplied: { [category: string]: ChartType } = {};
 		const initChecked: { [category: string]: string[] } = {};
 
-		dashboardData.dashboardData.forEach((cat) => {
-			if (cat.combinedData) {
-				initCombined[cat.categoryName] = cat.combinedData.map((chart) => ({
-					id: chart.id,
-					chartType: chart.chartType,
-					chartIds: chart.chartIds,
-					data: chart.data,
-				}));
-			}
-			if (cat.summaryData) {
-				initSummary[cat.categoryName] = cat.summaryData;
-			}
-			if (cat.appliedChartType) {
-				initApplied[cat.categoryName] = cat.appliedChartType;
-			}
-			if (cat.checkedIds) {
-				initChecked[cat.categoryName] = cat.checkedIds;
-			}
-		});
+		if (dashboardData && Array.isArray(dashboardData.dashboardData)) {
+			dashboardData.dashboardData.forEach((cat) => {
+				if (cat.combinedData) {
+					initCombined[cat.categoryName] = cat.combinedData.map((chart) => ({
+						id: chart.id,
+						chartType: chart.chartType,
+						chartIds: chart.chartIds,
+						data: chart.data,
+					}));
+				}
+				if (cat.summaryData) {
+					initSummary[cat.categoryName] = cat.summaryData;
+				}
+				if (cat.appliedChartType) {
+					initApplied[cat.categoryName] = cat.appliedChartType;
+				}
+				if (cat.checkedIds) {
+					initChecked[cat.categoryName] = cat.checkedIds;
+				}
+			});
+		}
+
 		setCombinedData(initCombined);
 		setSummaryData(initSummary);
 		setAppliedChartTypes(initApplied);
@@ -513,9 +759,9 @@ const Dashboard = () => {
 							: []
 					}
 					onSelect={handleDashboardSelect}
-					selectedId={dashboardId}
 					onEdit={handleEditClick}
 					onDelete={handleDeleteClick}
+					selectedId={dashboardId}
 				/>
 
 				<DataBar
@@ -534,6 +780,9 @@ const Dashboard = () => {
 						dashboardData ? dashboardData.dashboardData : []
 					}
 					onDataDifferencesDetected={handleDataDifferencesDetected}
+					uploadProgress={uploadProgress}
+					handleUploadToDashboard={handleUploadToDashboard}
+					isUploading={isUploading}
 				/>
 
 				{isLoading ? (
@@ -557,6 +806,25 @@ const Dashboard = () => {
 					/>
 				) : (
 					<NoDataPanel />
+				)}
+
+				{uploadProgress.isChunking && (
+					<div className='fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg'>
+						<p>
+							Uploading: {uploadProgress.currentChunk} of{' '}
+							{uploadProgress.totalChunks} chunks (
+							{Math.round(
+								(uploadProgress.currentChunk / uploadProgress.totalChunks) * 100
+							)}
+							%)
+						</p>
+						<button
+							className='mt-2 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600'
+							onClick={handleCancelUpload}
+						>
+							Cancel Upload
+						</button>
+					</div>
 				)}
 			</div>
 			<CustomDragLayer />

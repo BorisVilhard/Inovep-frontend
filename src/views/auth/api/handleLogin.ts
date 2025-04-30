@@ -13,7 +13,7 @@ const useLogin = () => {
 		async (data: LoginFormValues) => {
 			try {
 				const response = await axios.post(
-					'http://localhost:5000/auth',
+					`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth`,
 					{
 						email: data.email,
 						pwd: data.password,
@@ -27,8 +27,11 @@ const useLogin = () => {
 					toast.success(`Welcome ${username}!`);
 					router.push('/dashboard');
 				}
-			} catch (error) {
-				toast.error('Login failed. Please check your credentials.');
+			} catch (error: any) {
+				const errorMessage =
+					error.response?.data?.message ||
+					'Login failed. Please check your credentials.';
+				toast.error(errorMessage);
 			}
 		},
 		[router, store]

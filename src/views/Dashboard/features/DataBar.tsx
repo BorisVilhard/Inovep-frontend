@@ -15,7 +15,6 @@ import { IoMdDownload } from 'react-icons/io';
 import { GrDocumentExcel } from 'react-icons/gr';
 import { BsFiletypeCsv } from 'react-icons/bs';
 import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
-// import GoogleCloud from '@/app/components/testModal/GoogleCloud';
 
 interface DataBarProps {
 	getFileName: (name: string) => void;
@@ -27,6 +26,13 @@ interface DataBarProps {
 	onCreateDashboard: (dashboard: DocumentData) => void;
 	existingDashboardData: DashboardCategory[];
 	onDataDifferencesDetected: (differences: any, pendingFile: File) => void;
+	uploadProgress: {
+		currentChunk: number;
+		totalChunks: number;
+		isChunking: boolean;
+	};
+	handleUploadToDashboard: (dashId: string, localFile: File) => Promise<void>;
+	isUploading: boolean; // New prop to disable UI during upload
 }
 
 function restructureData(dashboardData: DashboardCategory[]) {
@@ -80,6 +86,10 @@ const DataBar: React.FC<DataBarProps> = ({
 	existingDashboardNames,
 	onCreateDashboard,
 	existingDashboardData,
+	onDataDifferencesDetected,
+	uploadProgress,
+	handleUploadToDashboard,
+	isUploading,
 }) => {
 	const { id: userId, accessToken } = useAuthStore();
 	const [file, setFile] = useState<File | null>(null);
@@ -89,6 +99,7 @@ const DataBar: React.FC<DataBarProps> = ({
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [pendingUpload, setPendingUpload] = useState(false);
 	const [selectedFileType, setSelectedFileType] = useState<string>('excel');
+	const fileInputRef = React.useRef<HTMLInputElement>(null); // Ref to reset file input
 
 	useEffect(() => {
 		if (files) {
@@ -102,8 +113,28 @@ const DataBar: React.FC<DataBarProps> = ({
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		if (e.target.files && e.target.files[0]) {
-			setFile(e.target.files[0]);
-			getFileName(e.target.files[0].name);
+			const selectedFile = e.target.files[0];
+			// Validate file type
+			const allowedTypes = [
+				'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+				'application/vnd.ms-excel',
+				'text/csv',
+				'application/pdf',
+				'image/png',
+				'image/jpeg',
+			];
+			if (!allowedTypes.includes(selectedFile.type)) {
+				alert(
+					'Unsupported file type. Please upload a PDF, PNG, JPEG, Excel, or CSV file.'
+				);
+				return;
+			}
+			if (selectedFile.size === 0) {
+				alert('File is empty. Please upload a valid file.');
+				return;
+			}
+			setFile(selectedFile);
+			getFileName(selectedFile.name);
 		}
 	};
 
@@ -124,37 +155,22 @@ const DataBar: React.FC<DataBarProps> = ({
 			onCreateDashboard(dashboard);
 			if (pendingUpload && file) {
 				await handleUploadToDashboard(dashboard._id, file);
+				// Reset file input after upload
+				setFile(null);
+				if (fileInputRef.current) {
+					fileInputRef.current.value = '';
+				}
 			}
 		} catch (err: any) {
 			console.error('Error creating dashboard:', err.response || err.message);
+			alert(
+				`Failed to create dashboard: ${
+					err.response?.data?.message || err.message
+				}`
+			);
 		} finally {
 			setPendingUpload(false);
-		}
-	};
-
-	const handleUploadToDashboard = async (dashId: string, localFile: File) => {
-		isLoading(true);
-		try {
-			const formData = new FormData();
-			formData.append('file', localFile);
-			formData.append('dashboardId', dashId);
-			const resp = await axios.post(
-				`${BACKEND_URL}/data/users/${userId}/dashboard/upload`,
-				formData,
-				{
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						'Content-Type': 'multipart/form-data',
-					},
-				}
-			);
-			const { dashboard } = resp.data;
-			getData(dashboard);
-			setFile(null);
-		} catch (err) {
-			console.error('Error uploading file:', err);
-		} finally {
-			isLoading(false);
+			setIsModalOpen(false);
 		}
 	};
 
@@ -168,17 +184,17 @@ const DataBar: React.FC<DataBarProps> = ({
 			setIsModalOpen(true);
 			return;
 		}
-		await handleUploadToDashboard(dashboardId, file);
+		try {
+			await handleUploadToDashboard(dashboardId, file);
+			// Reset file input after successful upload
+			setFile(null);
+			if (fileInputRef.current) {
+				fileInputRef.current.value = '';
+			}
+		} catch (err) {
+			// Error handling is managed in handleUploadToDashboard
+		}
 	};
-
-	// const handleCloudData = (updatedDashboard: DocumentData) => {
-	// 	if (!dashboardId) {
-	// 		setPendingUpload(true);
-	// 		setIsModalOpen(true);
-	// 		return;
-	// 	}
-	// 	getData(updatedDashboard);
-	// };
 
 	function downloadCSV(restructured: ReturnType<typeof restructureData>) {
 		let csv = 'categoryName,title,value\n';
@@ -225,6 +241,7 @@ const DataBar: React.FC<DataBarProps> = ({
 			getData(dashboard);
 		} catch (err) {
 			console.error('Error deleting file:', err);
+			alert(`Failed to delete file:`);
 		}
 	};
 
@@ -249,6 +266,8 @@ const DataBar: React.FC<DataBarProps> = ({
 						type='file'
 						style={{ display: 'none' }}
 						onChange={handleFileChange}
+						ref={fileInputRef}
+						accept='.csv,.xlsx,.xls,.pdf,.png,.jpeg'
 					/>
 					<label
 						htmlFor='file'
@@ -256,20 +275,48 @@ const DataBar: React.FC<DataBarProps> = ({
 					>
 						<MdOutlineAttachFile size={25} />
 					</label>
-					{/* <GoogleCloud
-						getData={getData}
-						onCloudData={handleCloudData}
-						dashboardId={dashboardId || ''}
-					/> */}
+
 					<Dropdown
 						width='170px'
 						items={uploadedFilesItems}
 						onDelete={handleFileDelete}
 						placeholder={file?.name ?? 'Uploaded Files'}
 					/>
-					<Button type='secondary' htmlType='submit' disabled={!file}>
-						Upload
+
+					<Button
+						type='secondary'
+						htmlType='submit'
+						disabled={!file || isUploading || uploadProgress.isChunking}
+					>
+						{uploadProgress.isChunking ? 'Uploading...' : 'Upload'}
 					</Button>
+
+					{uploadProgress.isChunking && (
+						<div className='text-white flex items-center gap-2'>
+							<span>
+								Uploading chunk {uploadProgress.currentChunk} of{' '}
+								{uploadProgress.totalChunks} (
+								{Math.round(
+									(uploadProgress.currentChunk / uploadProgress.totalChunks) *
+										100
+								)}
+								%)
+							</span>
+							<div className='w-20 h-2 bg-gray-700 rounded'>
+								<div
+									className='h-full bg-blue-500 rounded'
+									style={{
+										width: `${
+											(uploadProgress.currentChunk /
+												uploadProgress.totalChunks) *
+											100
+										}%`,
+									}}
+								/>
+							</div>
+						</div>
+					)}
+
 					<div className='z-20 flex h-12 cursor-pointer items-center gap-3 rounded-full border-2 border-white px-3 py-2 hover:bg-gray-700'>
 						<div
 							className='paragraph-P1-regular flex items-center'
@@ -297,11 +344,13 @@ const DataBar: React.FC<DataBarProps> = ({
 							className='ml-2'
 						/>
 					</div>
+
 					<Button
 						type='secondary'
 						className='gap-2'
 						htmlType='button'
 						onClick={() => setIsModalOpen(true)}
+						disabled={isUploading || uploadProgress.isChunking}
 					>
 						Dashboard <FaPlus />
 					</Button>
