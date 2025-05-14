@@ -6,11 +6,6 @@ type Subscription = {
 	status?: 'active' | 'canceled' | 'past_due' | 'unpaid' | 'trialing' | null;
 	activeUntil?: string;
 	tokensPerMonth?: number;
-	role?: 'regular' | 'company';
-	jobLimit?: number;
-	visibilityDays?: number;
-	canTop?: boolean;
-	topDays?: number;
 	subscriptionId?: string;
 };
 
@@ -19,8 +14,6 @@ type AuthState = {
 	username: string | null;
 	email: string | null;
 	accessToken: string | null;
-	regNumber: string | null;
-	registeredAddress: string | null;
 	subscription: Subscription | null;
 	tokens: number | null;
 	isRehydrated: boolean;
@@ -33,8 +26,6 @@ type AuthActions = {
 		username: string,
 		email: string,
 		accessToken: string | null,
-		regNumber?: string,
-		registeredAddress?: string,
 		subscription?: Subscription,
 		tokens?: number
 	) => void;
@@ -55,8 +46,6 @@ const useAuthStore = create<AuthStore>()(
 			username: null,
 			email: null,
 			accessToken: null,
-			regNumber: null,
-			registeredAddress: null,
 			subscription: null,
 			tokens: null,
 			isRehydrated: false,
@@ -67,28 +56,14 @@ const useAuthStore = create<AuthStore>()(
 				username,
 				email,
 				accessToken,
-				regNumber,
-				registeredAddress,
 				subscription,
 				tokens
 			) => {
-				console.log('setCredentials called:', {
-					id,
-					username,
-					email,
-					accessToken: accessToken ? '[set]' : null,
-					regNumber,
-					registeredAddress,
-					subscription,
-					tokens,
-				});
 				set((state) => ({
 					id,
 					username,
 					email,
 					accessToken: accessToken !== null ? accessToken : state.accessToken,
-					regNumber: regNumber || null,
-					registeredAddress: registeredAddress || null,
 					subscription: subscription || state.subscription || null,
 					tokens: tokens !== undefined ? tokens : state.tokens,
 				}));
@@ -108,8 +83,6 @@ const useAuthStore = create<AuthStore>()(
 							username: null,
 							email: null,
 							accessToken: null,
-							regNumber: null,
-							registeredAddress: null,
 							subscription: null,
 							tokens: null,
 							isRehydrated: false,
@@ -123,8 +96,6 @@ const useAuthStore = create<AuthStore>()(
 							username: null,
 							email: null,
 							accessToken: null,
-							regNumber: null,
-							registeredAddress: null,
 							subscription: null,
 							tokens: null,
 							isRehydrated: false,
@@ -195,8 +166,6 @@ export const selectCurrentUser = (state: AuthState) => ({
 	username: state.username,
 	email: state.email,
 	accessToken: state.accessToken,
-	regNumber: state.regNumber,
-	registeredAddress: state.registeredAddress,
 	subscription: state.subscription,
 	tokens: state.tokens,
 });
