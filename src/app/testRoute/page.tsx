@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import useAuthStore, { selectCurrentUser } from '@/views/auth/api/userReponse';
@@ -174,6 +175,33 @@ export default function Home() {
 		}
 	};
 
+	const handleFetchDashboardData = async (dashboardId: string) => {
+		setLoading(true);
+		setError(null);
+		try {
+			const data: ApiResponse<Dashboard> = await fetchWithAuth(
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboard/${dashboardId}`,
+				{ method: 'GET' }
+			);
+			if (data.dashboard) {
+				setDashboard(data.dashboard);
+				setDashboards((prev) =>
+					prev.map((d) => (d._id === dashboardId ? data.dashboard! : d))
+				);
+			}
+		} catch (err: any) {
+			setError(
+				err.message.includes('404')
+					? 'Dashboard not found.'
+					: err.message.includes('Unauthorized')
+					? 'Session expired. Please log in again.'
+					: `Error fetching dashboard data: ${err.message}`
+			);
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	const handleUpload = async (
 		file: File,
 		dashboardName: string,
@@ -216,16 +244,14 @@ export default function Home() {
 			const chunkFileName = `${dashboardName || 'upload'}${extension}`;
 
 			if (totalChunks > 1) {
-				// Handle chunked upload
 				for (let i = 0; i < totalChunks; i++) {
 					const start = i * CHUNK_SIZE;
 					const end = Math.min(start + CHUNK_SIZE, file.size);
 					const chunk = file.slice(start, end);
 
 					const formData = new FormData();
-					// Create a new Blob with the correct MIME type and filename
 					const chunkBlob = new Blob([chunk], { type: file.type });
-					formData.append('file', chunkBlob, chunkFileName); // Use consistent filename with extension
+					formData.append('file', chunkBlob, chunkFileName);
 					formData.append('name', dashboardName);
 					formData.append('chunkIdx', i.toString());
 					formData.append('totalChunks', totalChunks.toString());
@@ -257,9 +283,8 @@ export default function Home() {
 					}
 				}
 			} else {
-				// Single file upload
 				const formData = new FormData();
-				formData.append('file', file, file.name); // Preserve original filename
+				formData.append('file', file, file.name);
 				formData.append('name', dashboardName);
 
 				const data: ApiResponse<Dashboard> = await fetchWithAuth(
@@ -382,12 +407,7 @@ export default function Home() {
 	};
 
 	const handleSelectDashboard = (dashboardId: string) => {
-		const selected = dashboards.find((d) => d._id === dashboardId);
-		if (selected) {
-			setDashboard(selected);
-			setCalculationError(null);
-			setCalculationSuccess(null);
-		}
+		handleFetchDashboardData(dashboardId);
 	};
 
 	return (

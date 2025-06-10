@@ -24,47 +24,7 @@ import {
 	BarChart3,
 } from 'lucide-react';
 import CalculationForm from './CalculationForm';
-
-export interface Dashboard {
-	_id: string;
-	name: string;
-	ref: {
-		fid: string;
-		fn: string;
-		ch: boolean;
-		cc: number;
-		lu: string;
-	} | null;
-	data: {
-		cat: string;
-		data: {
-			i: string;
-			d: { t: string; v: any; d: string }[];
-		}[];
-		comb: {
-			i: string;
-			c: string[];
-			d: { t: string; v: any; d: string }[];
-		}[];
-		sum: { t: string; v: any; d: string }[];
-		chart: string;
-		ids: string[];
-	}[];
-	f: {
-		fid: string;
-		fn: string;
-		c?: string;
-		lu: string;
-		src: 'local' | 'google';
-		ch: boolean;
-		cc: number;
-		mon: { s: 'active' | 'expired'; ed?: string; f?: string };
-	}[];
-	uid: string;
-	ca: string;
-	ua: string;
-	da?: string | null;
-}
+import { Dashboard } from './Home';
 
 interface Props {
 	dashboard: Dashboard;
