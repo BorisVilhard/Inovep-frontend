@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import { Dashboard } from '../page';
 
@@ -33,9 +34,12 @@ export default function CalculationForm({
 
 	const validOperations = ['plus', 'minus', 'multiply', 'divide'];
 
-	// Fetch numeric titles
+	// Fetch numeric titles when dashboard changes
 	useEffect(() => {
-		if (!dashboard?._id || !dashboard?.uid) return;
+		if (!dashboard?._id || !dashboard?.uid) {
+			setFormError('Invalid dashboard or user ID.');
+			return;
+		}
 
 		const fetchTitles = async () => {
 			setFetchingTitles(true);
@@ -43,12 +47,18 @@ export default function CalculationForm({
 			try {
 				const titles = await fetchNumericTitles(dashboard.uid, dashboard._id);
 				setNumericParameters(titles);
-				setParameters(titles.length >= 2 ? [titles[0], titles[1]] : ['', '']);
-				if (titles.length === 0) {
+				// Initialize parameters with first two titles if available
+				if (titles.length >= 2) {
+					setParameters([titles[0], titles[1]]);
+				} else if (titles.length === 1) {
+					setParameters([titles[0], '']);
+				} else {
+					setParameters(['', '']);
 					setFormError('No numeric columns available for calculation.');
 				}
 			} catch (err: any) {
 				setFormError(`Failed to load numeric columns: ${err.message}`);
+				setNumericParameters([]);
 			} finally {
 				setFetchingTitles(false);
 			}
@@ -57,11 +67,13 @@ export default function CalculationForm({
 		fetchTitles();
 	}, [dashboard?._id, dashboard?.uid, fetchNumericTitles]);
 
+	// Handle parameter selection
 	const handleParameterChange = (index: number, value: string) => {
 		const newParameters = [...parameters];
 		newParameters[index] = value;
 		setParameters(newParameters);
 
+		// Adjust operations array based on parameter count
 		if (newParameters.length > operations.length + 1) {
 			setOperations([...operations, 'plus']);
 		} else if (newParameters.length <= operations.length + 1) {
@@ -69,12 +81,18 @@ export default function CalculationForm({
 		}
 	};
 
+	// Add a new parameter field
 	const handleAddParameter = () => {
 		if (parameters.length < numericParameters.length) {
-			setParameters([...parameters, numericParameters[0] || '']);
+			// Find an unused parameter
+			const available = numericParameters.find(
+				(param) => !parameters.includes(param)
+			);
+			setParameters([...parameters, available || '']);
 		}
 	};
 
+	// Remove a parameter field
 	const handleRemoveParameter = (index: number) => {
 		if (parameters.length > 2) {
 			const newParameters = parameters.filter((_, i) => i !== index);
@@ -83,45 +101,69 @@ export default function CalculationForm({
 		}
 	};
 
+	// Handle operation selection
 	const handleOperationChange = (index: number, value: string) => {
 		const newOperations = [...operations];
 		newOperations[index] = value;
 		setOperations(newOperations);
 	};
 
+	// Validate and submit form
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();
 		setFormError(null);
 
+		// Validate minimum parameters
 		if (parameters.length < 2) {
 			setFormError('At least two parameters are required.');
 			return;
 		}
 
+		// Validate all parameters are selected
+		if (parameters.some((param) => !param)) {
+			setFormError('All parameters must be selected.');
+			return;
+		}
+
+		// Validate no duplicate parameters
+		const uniqueParams = new Set(parameters);
+		if (uniqueParams.size !== parameters.length) {
+			setFormError('Duplicate parameters are not allowed.');
+			return;
+		}
+
+		// Validate parameters are numeric
+		if (parameters.some((param) => !numericParameters.includes(param))) {
+			setFormError('Invalid parameter selected.');
+			return;
+		}
+
+		// Validate operations count
 		if (operations.length !== parameters.length - 1) {
 			setFormError('Number of operations must be one less than parameters.');
 			return;
 		}
 
-		if (!resultName.trim()) {
-			setFormError('Result name is required.');
-			return;
-		}
-
-		if (
-			parameters.some((param) => !numericParameters.includes(param) || !param)
-		) {
-			setFormError('Invalid or missing parameter selected.');
-			return;
-		}
-
+		// Validate operations
 		if (operations.some((op) => !validOperations.includes(op))) {
 			setFormError('Invalid operation selected.');
 			return;
 		}
 
-		onSubmit(parameters, operations, resultName);
-		setResultName('');
+		// Validate result name
+		if (!resultName.trim()) {
+			setFormError('Result name is required.');
+			return;
+		}
+
+		if (numericParameters.includes(resultName.trim())) {
+			setFormError('Result name must not match an existing parameter.');
+			return;
+		}
+
+		// Submit form
+		onSubmit(parameters, operations, resultName.trim());
+		setResultName(''); // Reset result name after submission
 	};
 
 	return (
@@ -130,12 +172,9 @@ export default function CalculationForm({
 			className='mt-4 p-4 bg-gray-50 rounded shadow'
 		>
 			<h3 className='text-lg font-medium mb-2'>Calculate New Parameter</h3>
-			{error && (
-				<div className='text-red-500 mb-2 p-2 bg-red-100 rounded'>{error}</div>
-			)}
-			{formError && (
+			{(error || formError) && (
 				<div className='text-red-500 mb-2 p-2 bg-red-100 rounded'>
-					{formError}
+					{error || formError}
 				</div>
 			)}
 			{fetchingTitles && (
@@ -159,13 +198,19 @@ export default function CalculationForm({
 									}
 									className='mt-1 p-2 border rounded w-1/2 mr-2 focus:ring-blue-500 focus:border-blue-500'
 									disabled={loading || fetchingTitles}
+									aria-label={`Parameter ${index + 1}`}
 								>
 									<option value=''>Select Parameter</option>
-									{numericParameters.map((p) => (
-										<option key={p} value={p}>
-											{p}
-										</option>
-									))}
+									{numericParameters
+										.filter(
+											// Exclude already selected parameters (except for current)
+											(p) => !parameters.includes(p) || p === param
+										)
+										.map((p) => (
+											<option key={p} value={p}>
+												{p}
+											</option>
+										))}
 								</select>
 								{index >= 2 && (
 									<button
@@ -173,6 +218,7 @@ export default function CalculationForm({
 										onClick={() => handleRemoveParameter(index)}
 										className='text-red-500 hover:text-red-700 text-sm'
 										disabled={loading || fetchingTitles}
+										aria-label={`Remove parameter ${index + 1}`}
 									>
 										Remove
 									</button>
@@ -185,6 +231,7 @@ export default function CalculationForm({
 										}
 										className='mt-1 p-2 border rounded w-1/4 ml-2 focus:ring-blue-500 focus:border-blue-500'
 										disabled={loading || fetchingTitles}
+										aria-label={`Operation ${index + 1}`}
 									>
 										{validOperations.map((op) => (
 											<option key={op} value={op}>
@@ -201,6 +248,7 @@ export default function CalculationForm({
 								onClick={handleAddParameter}
 								className='text-blue-500 hover:text-blue-700 text-sm'
 								disabled={loading || fetchingTitles}
+								aria-label='Add another parameter'
 							>
 								+ Add Parameter
 							</button>
@@ -217,7 +265,8 @@ export default function CalculationForm({
 							className='mt-1 p-2 border rounded w-full focus:ring-blue-500 focus:border-blue-500'
 							disabled={loading || fetchingTitles}
 							required
-							placeholder='e.g., Total_Cost'
+							placeholder='e.g., Days_spent'
+							aria-label='Result name'
 						/>
 					</div>
 					<button
@@ -228,8 +277,10 @@ export default function CalculationForm({
 							fetchingTitles ||
 							parameters.length < 2 ||
 							!resultName.trim() ||
-							parameters.some((p) => !p)
+							parameters.some((p) => !p) ||
+							new Set(parameters).size !== parameters.length
 						}
+						aria-label='Calculate new parameter'
 					>
 						{loading ? 'Calculating...' : 'Calculate'}
 					</button>

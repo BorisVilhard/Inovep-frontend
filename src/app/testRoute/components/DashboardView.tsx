@@ -74,7 +74,12 @@ const DynamicDataDashboard: React.FC<{ initialData: Dashboard['data'] }> = ({
 			const normalized: Record<string, any> = { id: record.cat };
 			record.data.forEach((field) => {
 				const fieldData = field.d[0];
-				normalized[fieldData.t] = fieldData.v;
+				// Convert numeric strings to numbers
+				const value =
+					typeof fieldData.v === 'string' && !isNaN(Number(fieldData.v))
+						? Number(fieldData.v)
+						: fieldData.v;
+				normalized[fieldData.t] = value;
 			});
 			return normalized;
 		});
@@ -149,8 +154,8 @@ const DynamicDataDashboard: React.FC<{ initialData: Dashboard['data'] }> = ({
 				type: 'scatter',
 				title: `${xField} vs ${yField}`,
 				data: filteredData.map((item) => ({
-					x: item[xField],
-					y: item[yField],
+					x: typeof item[xField] === 'number' ? item[xField] : 0,
+					y: typeof item[yField] === 'number' ? item[yField] : 0,
 					name: item[fields.find((f) => types[f] === 'text')] || item.id,
 				})),
 			});
@@ -180,7 +185,7 @@ const DynamicDataDashboard: React.FC<{ initialData: Dashboard['data'] }> = ({
 			const catField = categoricalFields[0];
 			const summary = filteredData.reduce((acc, item) => {
 				const category = item[catField] || 'Unknown';
-				const value = item[numField] || 0;
+				const value = typeof item[numField] === 'number' ? item[numField] : 0;
 				if (!acc[category]) {
 					acc[category] = { total: 0, count: 0 };
 				}
@@ -193,8 +198,12 @@ const DynamicDataDashboard: React.FC<{ initialData: Dashboard['data'] }> = ({
 				title: `${numField} by ${catField}`,
 				data: Object.entries(summary).map(([name, data]) => ({
 					name,
-					total: parseFloat(data.total.toFixed(2)),
-					average: parseFloat((data.total / data.count).toFixed(2)),
+					total: Number.isFinite(data.total)
+						? Number(data.total.toFixed(2))
+						: 0,
+					average: Number.isFinite(data.total / data.count)
+						? Number((data.total / data.count).toFixed(2))
+						: 0,
 					count: data.count,
 				})),
 			});

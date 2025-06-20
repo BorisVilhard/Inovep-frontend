@@ -33,11 +33,6 @@ interface ChartPanelProps {
 	dashboardData: DashboardCategory[];
 	getCheckIds: (checkedIds: { [category: string]: string[] }) => void;
 	getCategoryEdit: (category: string | undefined) => void;
-	summaryData: { [category: string]: Entry[] };
-	combinedData: { [category: string]: CombinedChart[] };
-	setCombinedData: React.Dispatch<
-		React.SetStateAction<{ [category: string]: CombinedChart[] }>
-	>;
 	appliedChartTypes: { [category: string]: ChartType };
 	checkedIds: { [category: string]: string[] };
 	deleteDataByFileName: (fileName: string) => void;
@@ -48,14 +43,10 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 	editMode,
 	dashboardData,
 	getCheckIds,
-	summaryData,
-	combinedData,
-	setCombinedData,
 	appliedChartTypes,
 	checkedIds,
 	dashboardId,
 }) => {
-	// --- Local State ---
 	const [categoryEdit, setCategoryEdit] = useState<string | undefined>(
 		undefined
 	);
@@ -64,22 +55,47 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 	);
 	const [localDashboardData, setLocalDashboardData] =
 		useState<DashboardCategory[]>(dashboardData);
+	const [combinedData, setCombinedData] = useState<{
+		[category: string]: CombinedChart[];
+	}>({});
+	const [summaryData, setSummaryData] = useState<{
+		[category: string]: Entry[];
+	}>({});
 
 	const { chartType: globalChartType, setChartData } = useUpdateChartStore();
 	const { id: userId, accessToken } = useAuthStore();
 	const setHoveredTitle = useDragStore((state) => state.setHoveredTitle);
-
 	const previousCategoryEdit = useRef<string | undefined>();
 
 	useEffect(() => {
 		setLocalDashboardData(JSON.parse(JSON.stringify(dashboardData)));
+		// Compute combinedData and summaryData on mount
+		const newCombinedData: { [category: string]: CombinedChart[] } = {};
+		const newSummaryData: { [category: string]: Entry[] } = {};
+		dashboardData.forEach((category) => {
+			newSummaryData[category.categoryName] = category.mainData
+				.flatMap((entry) => entry.data)
+				.reduce((acc: Entry[], curr) => {
+					const existing = acc.find((e) => e.title === curr.title);
+					if (existing) {
+						existing.value =
+							(existing.value as number) + (curr.value as number);
+					} else {
+						acc.push({ ...curr });
+					}
+					return acc;
+				}, []);
+			newCombinedData[category.categoryName] = [];
+		});
+		setCombinedData(newCombinedData);
+		setSummaryData(newSummaryData);
 	}, [dashboardData]);
 
 	const updateCategoryDataInBackend = useCallback(
 		async (
 			categoryName: string,
-			combinedDataArray: CombinedChart[],
-			summaryDataArray: Entry[]
+			appliedChartType: ChartType,
+			checkedIds: string[]
 		) => {
 			if (!dashboardId || !userId) return;
 			const encodedCategoryName = encodeURIComponent(categoryName.trim());
@@ -89,10 +105,8 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 				await axios.put(
 					url,
 					{
-						combinedData: combinedDataArray,
-						summaryData: summaryDataArray,
-						appliedChartType: appliedChartTypes[categoryName],
-						checkedIds: checkedIds[categoryName],
+						appliedChartType,
+						checkedIds,
 					},
 					{
 						headers: {
@@ -100,22 +114,29 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 						},
 					}
 				);
-			} catch (error) {}
+			} catch (error) {
+				console.error('Error updating category data:', error);
+			}
 		},
-		[dashboardId, userId, accessToken, appliedChartTypes, checkedIds]
+		[dashboardId, userId, accessToken]
 	);
 
 	useEffect(() => {
 		Object.keys(combinedData).forEach((categoryName) => {
-			const combinedDataArray = combinedData[categoryName];
-			const summaryDataArray = summaryData[categoryName] || [];
+			const appliedChartType = appliedChartTypes[categoryName] || 'Area';
+			const categoryCheckedIds = checkedIds[categoryName] || [];
 			updateCategoryDataInBackend(
 				categoryName,
-				combinedDataArray,
-				summaryDataArray
+				appliedChartType,
+				categoryCheckedIds
 			);
 		});
-	}, [combinedData, summaryData, updateCategoryDataInBackend]);
+	}, [
+		combinedData,
+		appliedChartTypes,
+		checkedIds,
+		updateCategoryDataInBackend,
+	]);
 
 	const getCombinedChartData = (
 		category: string,
@@ -126,7 +147,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 				.find((cat) => cat.categoryName === category)
 				?.mainData.filter((entry) => chartIds.includes(entry.id))
 				.flatMap((entry) => entry.data) || [];
-
 		return entries;
 	};
 
@@ -255,9 +275,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 		]
 	);
 
-	// ----------------------------------------------
-	//  4. Update Chart Type (Individual/Combined)
-	// ----------------------------------------------
 	const updateChartType = async (
 		chartId: string,
 		newChartType: ChartType,
@@ -281,7 +298,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 		}
 	};
 
-	// Apply global chartType to all checked charts
 	useEffect(() => {
 		if (globalChartType) {
 			Object.keys(checkedIds).forEach((category) => {
@@ -292,7 +308,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 							(chart) => chart.id === chartId
 						);
 
-						// Validate chart type
 						if (!isValidChartType(globalChartType, chartId, combinedData)) {
 							console.warn(
 								`ChartType '${globalChartType}' is not supported for chart ID '${chartId}'. Skipping update.`
@@ -301,7 +316,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 						}
 
 						if (isCombinedChartFlag) {
-							// For a combined chart
 							await updateChartType(chartId, globalChartType, true, category);
 							setCombinedData((prev) => ({
 								...prev,
@@ -312,7 +326,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 								),
 							}));
 						} else {
-							// For an individual chart
 							await updateChartType(chartId, globalChartType, false, category);
 							setLocalDashboardData((prevData) =>
 								prevData.map((cat) => {
@@ -334,7 +347,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 				}
 			});
 
-			// Clear global chartType in store once applied
 			setChartData(undefined);
 		}
 	}, [
@@ -349,9 +361,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 		setCombinedData,
 	]);
 
-	// ----------------------------------------------
-	//  5. Clear Checks When Edit Mode is Off
-	// ----------------------------------------------
 	useEffect(() => {
 		if (!editMode) {
 			getCheckIds({});
@@ -359,9 +368,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 		}
 	}, [editMode, getCheckIds]);
 
-	// ----------------------------------------------
-	//  6. Clear Checks When Category Changes
-	// ----------------------------------------------
 	useEffect(() => {
 		if (categoryEdit !== previousCategoryEdit.current) {
 			getCheckIds({});
@@ -370,9 +376,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 		previousCategoryEdit.current = categoryEdit;
 	}, [categoryEdit, getCheckIds]);
 
-	// ----------------------------------------------
-	//  7. Drag & Drop to Change Chart Type
-	// ----------------------------------------------
 	const handleDropCustom = async (
 		draggedItem: { type: ChartType; dataType?: 'entry' | 'index' },
 		category: string,
@@ -393,7 +396,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 		try {
 			await updateChartType(chartId, newChartType, isCombined, category);
 			if (isCombined) {
-				// Update combined chart in state
 				setCombinedData((prev) => ({
 					...prev,
 					[category]: prev[category].map((chart) =>
@@ -401,7 +403,6 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
 					),
 				}));
 			} else {
-				// Update individual chart in local data
 				setLocalDashboardData((prevData) =>
 					prevData.map((cat) => {
 						if (cat.categoryName === category) {

@@ -32,7 +32,7 @@ interface DataBarProps {
 		isChunking: boolean;
 	};
 	handleUploadToDashboard: (dashId: string, localFile: File) => Promise<void>;
-	isUploading: boolean; // New prop to disable UI during upload
+	isUploading: boolean;
 }
 
 function restructureData(dashboardData: DashboardCategory[]) {

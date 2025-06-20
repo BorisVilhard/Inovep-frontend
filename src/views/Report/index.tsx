@@ -8,7 +8,7 @@ import Dropdown, { DropdownItem } from '@/app/components/Dropdown/Dropdown';
 
 import useAuthStore from '@/views/auth/api/userReponse';
 import ChatMessages from './features/ChatMessages';
-import ChatSidebar from './features/ChatSidebar';
+
 import { generateId } from './utils/generateId';
 import { DashboardCategory } from '@/types/types';
 
@@ -387,12 +387,6 @@ function DocumentChat() {
 	return (
 		<main className='flex h-full max-h-dvh w-full flex-col items-center justify-center'>
 			<div className='flex w-full justify-center'>
-				<ChatSidebar
-					chats={chats}
-					currentChatId={chatId}
-					onSelectChat={handleChatSelection}
-				/>
-
 				<div className='w-full max-w-3xl'>
 					<section className='flex w-full flex-col items-center justify-start gap-7 rounded-t-2xl bg-gray-900 px-10 py-6'>
 						<header className='mx-auto flex w-full items-center border-b p-4'>
