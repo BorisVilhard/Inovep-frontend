@@ -46,20 +46,38 @@ export interface Dashboard {
 	ca: string;
 	ua: string;
 	da?: string | null;
+	recommendations?: {
+		result_name: string;
+		parameters: string[];
+		operator: string;
+	}[];
 }
 
-// ApiResponse interface
 export interface ApiResponse<T> {
 	msg: string;
 	dashboard?: T;
 	dashboards?: T[];
 	numericTitles?: string[];
+	dateTitles?: string[];
 	duration: number;
 	cacheWarning?: string;
 	modifiedCount?: number;
 	queuedFiles?: number;
 	error?: string;
 	details?: string;
+	recommendations?: {
+		result_name: string;
+		parameters: string[];
+		operator: string;
+	}[];
+}
+
+interface TitlesResponse {
+	msg: string;
+	numericTitles?: string[];
+	dateTitles?: string[];
+	duration: number;
+	error?: string;
 }
 
 export default function Home() {
@@ -71,12 +89,13 @@ export default function Home() {
 		null
 	);
 	const [loading, setLoading] = useState<boolean>(false);
+	const [isCalculationFormOpen, setIsCalculationFormOpen] =
+		useState<boolean>(false);
 	const { id: userId, accessToken } = selectCurrentUser(
 		useAuthStore.getState()
 	);
 	const { refreshAccessToken, logOut } = useAuthStore();
 
-	// Fetch dashboards on mount
 	useEffect(() => {
 		if (userId) {
 			handleFetchDashboards();
@@ -85,7 +104,6 @@ export default function Home() {
 		}
 	}, [userId]);
 
-	// Fetch with token refresh
 	const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 		if (!userId) {
 			throw new Error('No user ID. Please log in.');
@@ -93,7 +111,9 @@ export default function Home() {
 
 		let token = accessToken;
 		if (!token) {
-			console.log('No access token, attempting refresh...');
+			console.log(
+				'No access token, attempting refresh at 03:35 PM CEST, Monday, June 23, 2025...'
+			);
 			const refreshed = await refreshAccessToken();
 			if (!refreshed) {
 				logOut();
@@ -110,7 +130,7 @@ export default function Home() {
 			headers.set('Content-Type', 'application/json');
 		}
 
-		console.log('Sending request:', {
+		console.log('Sending request at 03:35 PM CEST, Monday, June 23, 2025:', {
 			url,
 			method: options.method,
 			headers: Object.fromEntries(headers),
@@ -118,15 +138,20 @@ export default function Home() {
 
 		let response = await fetch(url, { ...options, headers });
 		if (response.status === 401) {
-			console.log('Received 401, attempting token refresh...');
+			console.log(
+				'Received 401, attempting token refresh at 03:35 PM CEST, Monday, June 23, 2025...'
+			);
 			const refreshed = await refreshAccessToken();
 			if (refreshed) {
 				token = selectCurrentUser(useAuthStore.getState()).accessToken;
 				headers.set('Authorization', `Bearer ${token}`);
-				console.log('Retrying with new token:', {
-					url,
-					headers: Object.fromEntries(headers),
-				});
+				console.log(
+					'Retrying with new token at 03:35 PM CEST, Monday, June 23, 2025:',
+					{
+						url,
+						headers: Object.fromEntries(headers),
+					}
+				);
 				response = await fetch(url, { ...options, headers });
 			} else {
 				logOut();
@@ -143,7 +168,10 @@ export default function Home() {
 		}
 
 		if (!response.ok) {
-			console.error('Request failed:', { status: response.status, data });
+			console.error('Request failed at 03:35 PM CEST, Monday, June 23, 2025:', {
+				status: response.status,
+				data,
+			});
 			throw new Error(
 				data.error ||
 					data.msg ||
@@ -157,10 +185,10 @@ export default function Home() {
 		setLoading(true);
 		setError(null);
 		try {
-			const data: ApiResponse<Dashboard> = await fetchWithAuth(
+			const data = (await fetchWithAuth(
 				`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboards`,
 				{ method: 'GET' }
-			);
+			)) as ApiResponse<Dashboard>;
 			setDashboards(data.dashboards || []);
 		} catch (err: any) {
 			setError(
@@ -168,7 +196,7 @@ export default function Home() {
 					? 'No dashboards found for this user.'
 					: err.message.includes('Unauthorized')
 					? 'Session expired. Please log in again.'
-					: `Error: ${err.message}`
+					: `Error at 03:35 PM CEST, Monday, June 23, 2025: ${err.message}`
 			);
 		} finally {
 			setLoading(false);
@@ -179,24 +207,28 @@ export default function Home() {
 		setLoading(true);
 		setError(null);
 		try {
-			const data: ApiResponse<Dashboard> = await fetchWithAuth(
+			const data = (await fetchWithAuth(
 				`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboard/${dashboardId}`,
 				{ method: 'GET' }
-			);
+			)) as ApiResponse<Dashboard>;
 			if (data.dashboard) {
 				setDashboard(data.dashboard);
 				setDashboards((prev) =>
 					prev.map((d) => (d._id === dashboardId ? data.dashboard! : d))
 				);
+				setIsCalculationFormOpen(true);
+				return { recommendations: data.recommendations || [] };
 			}
+			return { recommendations: [] };
 		} catch (err: any) {
 			setError(
 				err.message.includes('404')
 					? 'Dashboard not found.'
 					: err.message.includes('Unauthorized')
 					? 'Session expired. Please log in again.'
-					: `Error fetching dashboard data: ${err.message}`
+					: `Error fetching dashboard data at 03:35 PM CEST, Monday, June 23, 2025: ${err.message}`
 			);
+			return { recommendations: [] };
 		} finally {
 			setLoading(false);
 		}
@@ -210,7 +242,7 @@ export default function Home() {
 	) => {
 		setLoading(true);
 		setError(null);
-		console.log('Uploading file:', {
+		console.log('Uploading file at 03:35 PM CEST, Monday, June 23, 2025:', {
 			fileName: file.name,
 			size: file.size,
 			type: file.type,
@@ -241,7 +273,7 @@ export default function Home() {
 			const CHUNK_SIZE = 500 * 1024; // 500KB
 			const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 			const extension = file.name.match(/\.(csv|xlsx|xls)$/i)?.[0] || '.xlsx';
-			const chunkFileName = `${dashboardName || 'upload'}${extension}`;
+			const chunkFileName = `${dashboardName}${extension}`;
 
 			if (totalChunks > 1) {
 				for (let i = 0; i < totalChunks; i++) {
@@ -256,20 +288,23 @@ export default function Home() {
 					formData.append('chunkIdx', i.toString());
 					formData.append('totalChunks', totalChunks.toString());
 
-					console.log('Sending chunk:', {
-						chunkIdx: i,
-						fileName: chunkFileName,
-						mimetype: file.type,
-						size: chunk.size,
-					});
+					console.log(
+						'Sending chunk at 03:35 PM CEST, Monday, June 23, 2025:',
+						{
+							chunkIdx: i,
+							fileName: chunkFileName,
+							mimetype: file.type,
+							size: chunk.size,
+						}
+					);
 
-					const data: ApiResponse<Dashboard> = await fetchWithAuth(
+					const data = (await fetchWithAuth(
 						`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboard/upload`,
 						{
 							method: 'POST',
 							body: formData,
 						}
-					);
+					)) as ApiResponse<Dashboard>;
 
 					const progress = ((i + 1) / totalChunks) * 100;
 					onProgress(progress);
@@ -280,6 +315,7 @@ export default function Home() {
 							data.dashboard!,
 						]);
 						setDashboard(data.dashboard);
+						setIsCalculationFormOpen(true);
 					}
 				}
 			} else {
@@ -287,13 +323,13 @@ export default function Home() {
 				formData.append('file', file, file.name);
 				formData.append('name', dashboardName);
 
-				const data: ApiResponse<Dashboard> = await fetchWithAuth(
+				const data = (await fetchWithAuth(
 					`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboard/upload`,
 					{
 						method: 'POST',
 						body: formData,
 					}
-				);
+				)) as ApiResponse<Dashboard>;
 
 				if (data.dashboard) {
 					setDashboards((prev) => [
@@ -301,6 +337,7 @@ export default function Home() {
 						data.dashboard!,
 					]);
 					setDashboard(data.dashboard);
+					setIsCalculationFormOpen(true);
 				}
 				onProgress(100);
 			}
@@ -311,7 +348,7 @@ export default function Home() {
 					? 'Session expired. Please log in again.'
 					: err.message.includes('400')
 					? err.message
-					: `Upload failed: ${err.message}`
+					: `Upload failed at 03:35 PM CEST, Monday, June 23, 2025: ${err.message}`
 			);
 			onProgress(0);
 		} finally {
@@ -323,19 +360,20 @@ export default function Home() {
 		setLoading(true);
 		setError(null);
 		try {
-			const data: ApiResponse<never> = await fetchWithAuth(
+			const data = (await fetchWithAuth(
 				`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboard/${dashboardId}`,
 				{ method: 'DELETE' }
-			);
+			)) as ApiResponse<never>;
 			setDashboard(null);
 			setDashboards((prev) => prev.filter((d) => d._id !== dashboardId));
+			setIsCalculationFormOpen(false);
 		} catch (err: any) {
 			setError(
 				err.message.includes('Unauthorized')
 					? 'Session expired. Please log in again.'
 					: err.message.includes('404')
 					? 'Dashboard not found.'
-					: `Delete failed: ${err.message}`
+					: `Delete failed at 03:35 PM CEST, Monday, June 23, 2025: ${err.message}`
 			);
 		} finally {
 			setLoading(false);
@@ -345,29 +383,32 @@ export default function Home() {
 	const handleCalculate = async (
 		userId: string,
 		dashboardId: string,
-		parameters: string[],
-		operations: string[],
-		resultName: string
+		selectedCalculations: {
+			result_name: string;
+			parameters: string[];
+			operator: string;
+		}[]
 	) => {
 		setLoading(true);
 		setCalculationError(null);
 		setCalculationSuccess(null);
 
 		try {
-			const data: ApiResponse<Dashboard> = await fetchWithAuth(
+			const data = (await fetchWithAuth(
 				`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboard/${dashboardId}/calculate`,
 				{
 					method: 'POST',
-					body: JSON.stringify({ parameters, operations, resultName }),
+					body: JSON.stringify({ selectedCalculations }),
 				}
-			);
+			)) as ApiResponse<Dashboard>;
 
 			if (data.dashboard) {
 				setDashboard(data.dashboard);
 				setDashboards((prev) =>
 					prev.map((d) => (d._id === dashboardId ? data.dashboard! : d))
 				);
-				setCalculationSuccess('Calculation applied successfully!');
+				setCalculationSuccess('Calculations applied successfully!');
+				setIsCalculationFormOpen(false);
 			}
 		} catch (err: any) {
 			setCalculationError(
@@ -377,7 +418,7 @@ export default function Home() {
 					? 'Dashboard not found.'
 					: err.message.includes('Invalid')
 					? err.message
-					: `Calculation failed: ${err.message}`
+					: `Calculation failed at 03:35 PM CEST, Monday, June 23, 2025: ${err.message}`
 			);
 		} finally {
 			setLoading(false);
@@ -389,10 +430,10 @@ export default function Home() {
 		dashboardId: string
 	) => {
 		try {
-			const data: ApiResponse<never> = await fetchWithAuth(
+			const data = (await fetchWithAuth(
 				`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboard/${dashboardId}/numeric-titles`,
 				{ method: 'GET' }
-			);
+			)) as TitlesResponse;
 			return data.numericTitles || [];
 		} catch (err: any) {
 			setError(
@@ -400,50 +441,73 @@ export default function Home() {
 					? 'Session expired. Please log in again.'
 					: err.message.includes('404')
 					? 'Dashboard not found.'
-					: `Failed to fetch numeric titles: ${err.message}`
+					: `Failed to fetch numeric titles at 03:35 PM CEST, Monday, June 23, 2025: ${err.message}`
 			);
 			return [];
 		}
 	};
 
-	const handleSelectDashboard = (dashboardId: string) => {
-		handleFetchDashboardData(dashboardId);
+	const handleFetchDateTitles = async (userId: string, dashboardId: string) => {
+		try {
+			const data = (await fetchWithAuth(
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${userId}/dashboard/${dashboardId}/date-titles`,
+				{ method: 'GET' }
+			)) as TitlesResponse;
+			return data.dateTitles || [];
+		} catch (err: any) {
+			setError(
+				err.message.includes('Unauthorized')
+					? 'Session expired. Please log in again.'
+					: err.message.includes('404')
+					? 'Dashboard not found.'
+					: `Failed to fetch date titles at 03:35 PM CEST, Monday, June 23, 2025: ${err.message}`
+			);
+			return [];
+		}
+	};
+
+	const handleSelectDashboard = async (dashboardId: string) => {
+		await handleFetchDashboardData(dashboardId);
+	};
+
+	const handleCalculationComplete = (updatedDashboard: Dashboard) => {
+		setDashboard(updatedDashboard);
+		setDashboards((prev) =>
+			prev.map((d) => (d._id === updatedDashboard._id ? updatedDashboard : d))
+		);
+		setCalculationSuccess('Calculations applied successfully!');
+		setIsCalculationFormOpen(false);
 	};
 
 	return (
-		<div className='min-h-screen bg-gray-100'>
-			<Head>
-				<title>Dashboard App</title>
-				<meta name='description' content='Dashboard data management' />
-				<link rel='icon' href='/favicon.ico' />
-			</Head>
-
+		<div className='min-h-screen w-full bg-gray-100 dark:bg-gray-100'>
 			<main className='container mx-auto p-4'>
-				<h1 className='text-3xl font-bold mb-4'>Dashboard Management</h1>
-				{error && (
-					<div className='text-red-500 mb-4 p-2 bg-red-100 rounded'>
-						{error}
-					</div>
-				)}
 				<DashboardForm
 					onSubmit={handleUpload}
 					loading={loading}
 					fetchNumericTitles={handleFetchNumericTitles}
-					userId={userId}
+					fetchDateTitles={handleFetchDateTitles}
+					userId={userId || ''}
 				/>
 
 				<div className='mt-4'>
-					<h2 className='text-2xl font-semibold mb-2'>Available Dashboards</h2>
+					<h2 className='text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100'>
+						Available Dashboards
+					</h2>
 					{loading ? (
-						<div>Loading dashboards...</div>
+						<div className='text-gray-500 dark:text-gray-400'>
+							Loading dashboards...
+						</div>
 					) : dashboards.length === 0 ? (
-						<div>No dashboards available.</div>
+						<div className='text-gray-500 dark:text-gray-400'>
+							No dashboards available.
+						</div>
 					) : (
 						<ul className='space-y-2'>
 							{dashboards.map((d) => (
 								<li
 									key={d._id}
-									className='p-2 bg-white rounded shadow cursor-pointer hover:bg-gray-50 transition-colors'
+									className='p-2 bg-white rounded shadow cursor-pointer hover:bg-gray-50 transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200'
 									onClick={() => handleSelectDashboard(d._id)}
 								>
 									{d.name} (Created: {new Date(d.ca).toLocaleDateString()})
@@ -457,19 +521,21 @@ export default function Home() {
 					<DashboardView
 						dashboard={dashboard}
 						onDelete={() => handleDelete(dashboard.uid, dashboard._id)}
-						onCalculate={(parameters, operations, resultName) =>
+						onCalculate={(selectedCalculations) =>
 							handleCalculate(
 								dashboard.uid,
 								dashboard._id,
-								parameters,
-								operations,
-								resultName
+								selectedCalculations
 							)
 						}
 						loading={loading}
 						calculationError={calculationError}
 						calculationSuccess={calculationSuccess}
 						fetchNumericTitles={handleFetchNumericTitles}
+						fetchDateTitles={handleFetchDateTitles}
+						isCalculationFormOpen={isCalculationFormOpen}
+						onCloseCalculationForm={() => setIsCalculationFormOpen(false)}
+						onCalculationComplete={handleCalculationComplete}
 					/>
 				)}
 			</main>

@@ -1,291 +1,341 @@
 'use client';
 
-import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import {
+	CheckCircle,
+	TrendingUp,
+	Brain,
+	AlertTriangle,
+	Zap,
+} from 'lucide-react';
 import { Dashboard } from '../page';
+import Modal from '@/app/components/Modal';
+import useAuthStore, { selectCurrentUser } from '@/views/auth/api/userReponse';
 
-interface Props {
-	dashboard: Dashboard;
-	onSubmit: (
-		parameters: string[],
-		operations: string[],
-		resultName: string
-	) => void;
-	loading: boolean;
-	error: string | null;
-	fetchNumericTitles: (
-		userId: string,
-		dashboardId: string
-	) => Promise<string[]>;
+interface CalculationOption {
+	result_name: string;
+	parameters: string[];
+	operator: string;
 }
+
+interface CalculationFormProps {
+	dashboard: Dashboard;
+	isOpen: boolean;
+	onClose: () => void;
+	onCalculationComplete: (
+		updatedDashboard: Dashboard,
+		selectedCalculations: CalculationOption[]
+	) => void;
+}
+
+const LoadingAnimation: React.FC<{ titles: string[] }> = ({ titles }) => {
+	const [currentTitleIndex, setCurrentTitleIndex] = useState(0);
+	const [isVisible, setIsVisible] = useState(true);
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setIsVisible(false);
+			setTimeout(() => {
+				setCurrentTitleIndex((prev) => (prev + 1) % titles.length);
+				setIsVisible(true);
+			}, 300);
+		}, 1500);
+
+		return () => clearInterval(interval);
+	}, [titles.length]);
+
+	return (
+		<div className='flex flex-col items-center justify-center py-20'>
+			<div className='relative mb-12'>
+				<div className='w-12 h-12 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin dark:border-gray-700 dark:border-t-gray-100'></div>
+			</div>
+
+			<div className='h-8 flex items-center'>
+				<span
+					className={`text-xl font-light text-gray-900 transition-all duration-300 dark:text-gray-100 ${
+						isVisible
+							? 'opacity-100 transform translate-x-0'
+							: 'opacity-0 transform translate-x-8'
+					}`}
+				>
+					{titles[currentTitleIndex]}
+				</span>
+			</div>
+
+			<div className='mt-6 text-gray-400 text-xs font-light dark:text-gray-500'>
+				Preparing your financial analysis
+			</div>
+		</div>
+	);
+};
 
 export default function CalculationForm({
 	dashboard,
-	onSubmit,
-	loading,
-	error,
-	fetchNumericTitles,
-}: Props) {
-	const [parameters, setParameters] = useState<string[]>(['', '']);
-	const [operations, setOperations] = useState<string[]>(['plus']);
-	const [resultName, setResultName] = useState('');
-	const [formError, setFormError] = useState<string | null>(null);
-	const [numericParameters, setNumericParameters] = useState<string[]>([]);
-	const [fetchingTitles, setFetchingTitles] = useState<boolean>(false);
+	isOpen,
+	onClose,
+	onCalculationComplete,
+}: CalculationFormProps) {
+	const [isLoading, setIsLoading] = useState(false);
+	const [selectedOptions, setSelectedOptions] = useState<CalculationOption[]>(
+		[]
+	);
+	const [calculationError, setCalculationError] = useState<string | null>(null);
+	const [recommendations, setRecommendations] = useState<CalculationOption[]>(
+		[]
+	);
+	const [numericTitles, setNumericTitles] = useState<string[]>([]);
+	const { accessToken } = selectCurrentUser(useAuthStore.getState());
 
-	const validOperations = ['plus', 'minus', 'multiply', 'divide'];
+	const filteredRecommendations = useMemo(
+		() =>
+			recommendations.filter(
+				(option) =>
+					!['sum', 'difference', 'product', 'ratio'].includes(
+						option.result_name.toLowerCase()
+					)
+			),
+		[recommendations]
+	);
 
-	// Fetch numeric titles when dashboard changes
 	useEffect(() => {
-		if (!dashboard?._id || !dashboard?.uid) {
-			setFormError('Invalid dashboard or user ID.');
-			return;
-		}
+		if (isOpen) {
+			const fetchRecommendations = async () => {
+				setIsLoading(true);
+				setCalculationError(null);
+				setSelectedOptions([]);
 
-		const fetchTitles = async () => {
-			setFetchingTitles(true);
-			setFormError(null);
-			try {
-				const titles = await fetchNumericTitles(dashboard.uid, dashboard._id);
-				setNumericParameters(titles);
-				// Initialize parameters with first two titles if available
-				if (titles.length >= 2) {
-					setParameters([titles[0], titles[1]]);
-				} else if (titles.length === 1) {
-					setParameters([titles[0], '']);
-				} else {
-					setParameters(['', '']);
-					setFormError('No numeric columns available for calculation.');
+				try {
+					const [numericResponse, dateResponse] = await Promise.all([
+						fetch(
+							`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${dashboard.uid}/dashboard/${dashboard._id}/numeric-titles`,
+							{
+								method: 'GET',
+								headers: {
+									Authorization: `Bearer ${accessToken}`,
+									'Content-Type': 'application/json',
+								},
+							}
+						),
+						fetch(
+							`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${dashboard.uid}/dashboard/${dashboard._id}/date-titles`,
+							{
+								method: 'GET',
+								headers: {
+									Authorization: `Bearer ${accessToken}`,
+									'Content-Type': 'application/json',
+								},
+							}
+						),
+					]);
+
+					if (!numericResponse.ok || !dateResponse.ok) {
+						throw new Error('Failed to fetch titles');
+					}
+
+					const numericData = await numericResponse.json();
+					const dateData = await dateResponse.json();
+					setNumericTitles(numericData.numericTitles || []);
+					const dateTitles: string[] = dateData.dateTitles || [];
+
+					const response = await fetch(
+						`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${dashboard.uid}/dashboard/${dashboard._id}/recommendations`,
+						{
+							method: 'POST',
+							headers: {
+								Authorization: `Bearer ${accessToken}`,
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify({
+								numericTitles: numericData.numericTitles || [],
+								dateTitles,
+							}),
+						}
+					);
+
+					const data = await response.json();
+					if (!response.ok) {
+						throw new Error(data.msg || 'Failed to fetch recommendations');
+					}
+
+					setRecommendations(
+						data.recommendations.map(
+							({ resultName, parameters, operator }: any) => ({
+								result_name: resultName,
+								parameters,
+								operator,
+							})
+						) || []
+					);
+
+					if (!data.recommendations.length) {
+						setCalculationError('No recommended calculations available.');
+					}
+				} catch (error: any) {
+					setCalculationError(
+						`Failed to load recommendations: ${error.message}`
+					);
+				} finally {
+					setIsLoading(false);
 				}
-			} catch (err: any) {
-				setFormError(`Failed to load numeric columns: ${err.message}`);
-				setNumericParameters([]);
-			} finally {
-				setFetchingTitles(false);
-			}
-		};
+			};
 
-		fetchTitles();
-	}, [dashboard?._id, dashboard?.uid, fetchNumericTitles]);
-
-	// Handle parameter selection
-	const handleParameterChange = (index: number, value: string) => {
-		const newParameters = [...parameters];
-		newParameters[index] = value;
-		setParameters(newParameters);
-
-		// Adjust operations array based on parameter count
-		if (newParameters.length > operations.length + 1) {
-			setOperations([...operations, 'plus']);
-		} else if (newParameters.length <= operations.length + 1) {
-			setOperations(operations.slice(0, newParameters.length - 1));
+			fetchRecommendations();
 		}
+	}, [isOpen, dashboard.uid, dashboard._id, accessToken]);
+
+	const handleOptionToggle = (option: CalculationOption) => {
+		setCalculationError(null);
+		setSelectedOptions((prev) =>
+			prev.some((o) => o.result_name === option.result_name)
+				? prev.filter((o) => o.result_name !== option.result_name)
+				: [...prev, option]
+		);
 	};
 
-	// Add a new parameter field
-	const handleAddParameter = () => {
-		if (parameters.length < numericParameters.length) {
-			// Find an unused parameter
-			const available = numericParameters.find(
-				(param) => !parameters.includes(param)
+	const handleCalculate = async () => {
+		if (selectedOptions.length === 0) {
+			setCalculationError('Please select at least one calculation.');
+			return;
+		}
+
+		setIsLoading(true);
+		setCalculationError(null);
+
+		try {
+			const response = await fetch(
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/dataProcess/users/${dashboard.uid}/dashboard/${dashboard._id}/calculate`,
+				{
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({ selectedCalculations: selectedOptions }),
+				}
 			);
-			setParameters([...parameters, available || '']);
+
+			const data = await response.json();
+			if (!response.ok) {
+				throw new Error(data.msg || 'Calculation failed');
+			}
+
+			if (!data.dashboard) {
+				throw new Error('No dashboard data returned');
+			}
+
+			onCalculationComplete(data.dashboard, selectedOptions);
+			onClose();
+		} catch (error: any) {
+			setCalculationError(`Calculation failed: ${error.message}`);
+		} finally {
+			setIsLoading(false);
 		}
-	};
-
-	// Remove a parameter field
-	const handleRemoveParameter = (index: number) => {
-		if (parameters.length > 2) {
-			const newParameters = parameters.filter((_, i) => i !== index);
-			setParameters(newParameters);
-			setOperations(operations.slice(0, newParameters.length - 1));
-		}
-	};
-
-	// Handle operation selection
-	const handleOperationChange = (index: number, value: string) => {
-		const newOperations = [...operations];
-		newOperations[index] = value;
-		setOperations(newOperations);
-	};
-
-	// Validate and submit form
-	const handleSubmit = (e: FormEvent) => {
-		e.preventDefault();
-		setFormError(null);
-
-		// Validate minimum parameters
-		if (parameters.length < 2) {
-			setFormError('At least two parameters are required.');
-			return;
-		}
-
-		// Validate all parameters are selected
-		if (parameters.some((param) => !param)) {
-			setFormError('All parameters must be selected.');
-			return;
-		}
-
-		// Validate no duplicate parameters
-		const uniqueParams = new Set(parameters);
-		if (uniqueParams.size !== parameters.length) {
-			setFormError('Duplicate parameters are not allowed.');
-			return;
-		}
-
-		// Validate parameters are numeric
-		if (parameters.some((param) => !numericParameters.includes(param))) {
-			setFormError('Invalid parameter selected.');
-			return;
-		}
-
-		// Validate operations count
-		if (operations.length !== parameters.length - 1) {
-			setFormError('Number of operations must be one less than parameters.');
-			return;
-		}
-
-		// Validate operations
-		if (operations.some((op) => !validOperations.includes(op))) {
-			setFormError('Invalid operation selected.');
-			return;
-		}
-
-		// Validate result name
-		if (!resultName.trim()) {
-			setFormError('Result name is required.');
-			return;
-		}
-
-		if (numericParameters.includes(resultName.trim())) {
-			setFormError('Result name must not match an existing parameter.');
-			return;
-		}
-
-		// Submit form
-		onSubmit(parameters, operations, resultName.trim());
-		setResultName(''); // Reset result name after submission
 	};
 
 	return (
-		<form
-			onSubmit={handleSubmit}
-			className='mt-4 p-4 bg-gray-50 rounded shadow'
+		<Modal
+			isOpen={isOpen}
+			onClose={onClose}
+			title='AI-Powered Calculations'
+			width='900px'
+			className='max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl'
 		>
-			<h3 className='text-lg font-medium mb-2'>Calculate New Parameter</h3>
-			{(error || formError) && (
-				<div className='text-red-500 mb-2 p-2 bg-red-100 rounded'>
-					{error || formError}
+			{isLoading ? (
+				<LoadingAnimation
+					titles={
+						numericTitles.length > 0
+							? numericTitles
+							: [
+									'Analyzing',
+									'Processing',
+									'Computing',
+									'Calculating',
+									'Optimizing',
+							  ]
+					}
+				/>
+			) : (
+				<div className='p-6'>
+					<div className='text-center mb-8'>
+						<h3 className='text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center justify-center gap-2'>
+							<Brain size={20} className='text-blue-500' />
+							Select Insights
+						</h3>
+						<p className='text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto'>
+							Choose predictive calculations to transform your data into
+							actionable financial intelligence
+						</p>
+					</div>
+					{filteredRecommendations.length ? (
+						<div className='grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto'>
+							{filteredRecommendations.map((option) => (
+								<div
+									key={option.result_name}
+									className={`group cursor-pointer transition-all duration-200 ${
+										selectedOptions.some(
+											(o) => o.result_name === option.result_name
+										)
+											? 'scale-[1.01]'
+											: ''
+									}`}
+									onClick={() => handleOptionToggle(option)}
+								>
+									<div
+										className={`bg-white rounded-lg p-5 border transition-shadow duration-200 ${
+											selectedOptions.some(
+												(o) => o.result_name === option.result_name
+											)
+												? 'border-blue-500 shadow-md'
+												: 'border-gray-200 hover:shadow-md dark:border-gray-700 dark:hover:shadow-lg'
+										} dark:bg-gray-800`}
+									>
+										<div className='flex justify-between items-start mb-3'>
+											<div className='flex items-center gap-3'>
+												<div className='p-2 bg-blue-50 rounded-md dark:bg-blue-900/50'>
+													<TrendingUp size={16} className='text-blue-500' />
+												</div>
+												<span className='font-medium text-gray-900 dark:text-gray-100'>
+													{option.result_name.replace(/([A-Z])/g, ' $1').trim()}
+												</span>
+											</div>
+											{selectedOptions.some(
+												(o) => o.result_name === option.result_name
+											) && <CheckCircle size={16} className='text-blue-500' />}
+										</div>
+										<p className='text-xs text-gray-600 dark:text-gray-400 mb-2'>
+											Using {option.parameters.join(', ')}
+										</p>
+										<p className='text-xs text-gray-500 dark:text-gray-500'>
+											Operation: {option.operator}
+										</p>
+									</div>
+								</div>
+							))}
+						</div>
+					) : (
+						<div className='text-center py-12 text-gray-500 dark:text-gray-400'>
+							<Brain size={48} className='mx-auto mb-4 opacity-50' />
+							<p>No AI-recommended calculations available yet.</p>
+						</div>
+					)}
+					<div className='mt-8 flex justify-center'>
+						<button
+							onClick={handleCalculate}
+							className='px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 dark:bg-blue-600 dark:hover:bg-blue-700'
+							disabled={isLoading || selectedOptions.length === 0}
+						>
+							<Zap size={16} />
+							{isLoading ? 'Generating Insights...' : 'Generate Insights'}
+						</button>
+					</div>
+					{calculationError && (
+						<div className='mt-4 p-3 bg-red-50 text-red-700 rounded-lg text-center flex items-center justify-center gap-2 dark:bg-red-900/50 dark:text-red-300'>
+							<AlertTriangle size={16} />
+							{calculationError}
+						</div>
+					)}
 				</div>
 			)}
-			{fetchingTitles && (
-				<div className='text-gray-500 mb-2'>Loading numeric columns...</div>
-			)}
-			{!fetchingTitles && numericParameters.length === 0 && !formError && (
-				<div className='text-gray-500 mb-2'>No numeric columns available.</div>
-			)}
-			{!fetchingTitles && numericParameters.length > 0 && (
-				<>
-					<div className='mb-4'>
-						<label className='block text-sm font-medium text-gray-700'>
-							Parameters
-						</label>
-						{parameters.map((param, index) => (
-							<div key={index} className='flex items-center mb-2'>
-								<select
-									value={param}
-									onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-										handleParameterChange(index, e.target.value)
-									}
-									className='mt-1 p-2 border rounded w-1/2 mr-2 focus:ring-blue-500 focus:border-blue-500'
-									disabled={loading || fetchingTitles}
-									aria-label={`Parameter ${index + 1}`}
-								>
-									<option value=''>Select Parameter</option>
-									{numericParameters
-										.filter(
-											// Exclude already selected parameters (except for current)
-											(p) => !parameters.includes(p) || p === param
-										)
-										.map((p) => (
-											<option key={p} value={p}>
-												{p}
-											</option>
-										))}
-								</select>
-								{index >= 2 && (
-									<button
-										type='button'
-										onClick={() => handleRemoveParameter(index)}
-										className='text-red-500 hover:text-red-700 text-sm'
-										disabled={loading || fetchingTitles}
-										aria-label={`Remove parameter ${index + 1}`}
-									>
-										Remove
-									</button>
-								)}
-								{index < parameters.length - 1 && (
-									<select
-										value={operations[index] || 'plus'}
-										onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-											handleOperationChange(index, e.target.value)
-										}
-										className='mt-1 p-2 border rounded w-1/4 ml-2 focus:ring-blue-500 focus:border-blue-500'
-										disabled={loading || fetchingTitles}
-										aria-label={`Operation ${index + 1}`}
-									>
-										{validOperations.map((op) => (
-											<option key={op} value={op}>
-												{op.charAt(0).toUpperCase() + op.slice(1)}
-											</option>
-										))}
-									</select>
-								)}
-							</div>
-						))}
-						{parameters.length < numericParameters.length && (
-							<button
-								type='button'
-								onClick={handleAddParameter}
-								className='text-blue-500 hover:text-blue-700 text-sm'
-								disabled={loading || fetchingTitles}
-								aria-label='Add another parameter'
-							>
-								+ Add Parameter
-							</button>
-						)}
-					</div>
-					<div className='mb-4'>
-						<label className='block text-sm font-medium text-gray-700'>
-							Result Name
-						</label>
-						<input
-							type='text'
-							value={resultName}
-							onChange={(e) => setResultName(e.target.value)}
-							className='mt-1 p-2 border rounded w-full focus:ring-blue-500 focus:border-blue-500'
-							disabled={loading || fetchingTitles}
-							required
-							placeholder='e.g., Days_spent'
-							aria-label='Result name'
-						/>
-					</div>
-					<button
-						type='submit'
-						className='bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed'
-						disabled={
-							loading ||
-							fetchingTitles ||
-							parameters.length < 2 ||
-							!resultName.trim() ||
-							parameters.some((p) => !p) ||
-							new Set(parameters).size !== parameters.length
-						}
-						aria-label='Calculate new parameter'
-					>
-						{loading ? 'Calculating...' : 'Calculate'}
-					</button>
-				</>
-			)}
-		</form>
+		</Modal>
 	);
 }

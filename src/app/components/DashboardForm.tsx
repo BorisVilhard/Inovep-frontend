@@ -1,56 +1,137 @@
 'use client';
 
-import { Dashboard } from '../testRoute/page';
+import { useState, FormEvent, ChangeEvent } from 'react';
+import useAuthStore, { selectCurrentUser } from '@/views/auth/api/userReponse';
 
 interface Props {
-	dashboard: Dashboard;
-	onDelete: () => void;
+	onSubmit: (
+		file: File,
+		dashboardName: string,
+		userId: string,
+		onProgress: (percentage: number) => void
+	) => void;
 	loading: boolean;
+	fetchNumericTitles: (
+		userId: string,
+		dashboardId: string
+	) => Promise<string[]>;
+	fetchDateTitles: (userId: string, dashboardId: string) => Promise<string[]>;
+	userId: string;
 }
 
-export default function DashboardView({ dashboard, onDelete, loading }: Props) {
-	return (
-		<div className='mt-6 p-4 bg-white rounded shadow'>
-			<h2 className='text-2xl font-semibold mb-2'>{dashboard.name}</h2>
-			<p>Created: {new Date(dashboard.ca).toLocaleDateString()}</p>
-			<p>Updated: {new Date(dashboard.ua).toLocaleDateString()}</p>
+export default function DashboardForm({
+	onSubmit,
+	loading,
+	fetchNumericTitles,
+	fetchDateTitles,
+	userId,
+}: Props) {
+	const [file, setFile] = useState<File | null>(null);
+	const [name, setName] = useState('');
+	const [progress, setProgress] = useState(0);
+	const [formError, setFormError] = useState<string | null>(null);
+	const [fileInputKey, setFileInputKey] = useState(Date.now());
 
-			<h3 className='text-xl font-medium mt-4 mb-2'>Categories</h3>
-			{/* Null/undefined check for dashboard.data */}
-			{!dashboard.data || dashboard.data.length === 0 ? (
-				<p className='text-gray-500'>No data available</p>
-			) : (
-				<div className='space-y-4'>
-					{dashboard.data.map((category, idx) => (
-						<div key={idx} className='mb-4'>
-							<h4 className='text-lg font-medium'>{category.cat}</h4>
-							<ul className='list-disc pl-5'>
-								{category.data.map((chart) => (
-									<li key={chart.i}>
-										Chart ID: {chart.i}
-										<ul className='list-circle pl-5'>
-											{chart.d.map((entry, eIdx) => (
-												<li key={eIdx}>
-													{entry.t}: {entry.v} (
-													{new Date(entry.d).toLocaleDateString()})
-												</li>
-											))}
-										</ul>
-									</li>
-								))}
-							</ul>
-						</div>
-					))}
+	const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+		const selectedFile = e.target.files?.[0] || null;
+		console.log('File selected:', {
+			fileName: selectedFile?.name,
+			fileSize: selectedFile?.size,
+			fileType: selectedFile?.type,
+		});
+		setFile(selectedFile);
+		setFormError(null);
+		setProgress(0);
+	};
+
+	const handleSubmit = (e: FormEvent) => {
+		e.preventDefault();
+		setFormError(null);
+
+		if (!file) {
+			setFormError('Please select a file.');
+			return;
+		}
+
+		if (!name.trim()) {
+			setFormError('Dashboard name is required.');
+			return;
+		}
+
+		if (!userId) {
+			setFormError('Please log in to upload a dashboard.');
+			return;
+		}
+
+		console.log('Submitting form:', {
+			fileName: file.name,
+			dashboardName: name,
+		});
+		onSubmit(file, name, userId, setProgress);
+		setFile(null);
+		setName('');
+		setProgress(0);
+		setFileInputKey(Date.now());
+	};
+
+	return (
+		<form onSubmit={handleSubmit} className='mb-6 p-4 bg-white rounded shadow'>
+			<h3 className='text-lg font-medium mb-4'>Upload New Dashboard</h3>
+			{formError && (
+				<div className='text-red-500 mb-4 p-2 bg-red-100 rounded'>
+					{formError}
 				</div>
 			)}
-
+			<div className='mb-4'>
+				<label className='block text-sm font-medium text-gray-700'>
+					Dashboard Name
+				</label>
+				<input
+					type='text'
+					value={name}
+					onChange={(e) => setName(e.target.value)}
+					className='mt-1 p-2 border rounded w-full focus:ring-blue-500 focus:border-blue-500'
+					disabled={loading}
+					required
+					placeholder='e.g., SaaS Financials'
+				/>
+			</div>
+			<div className='mb-4'>
+				<label className='block text-sm font-medium text-gray-700'>
+					Excel/CSV File
+				</label>
+				<input
+					key={fileInputKey}
+					type='file'
+					accept='.xlsx,.xls,.csv'
+					onChange={handleFileChange}
+					className='mt-1 p-2 border rounded w-full file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
+					disabled={loading}
+					required
+				/>
+			</div>
+			<p className='text-sm text-gray-500 mb-4'>
+				Upload a CSV or Excel file (max 6MB). After uploading, you can perform
+				calculations on numeric columns.
+			</p>
+			{progress > 0 && (
+				<div className='mb-4'>
+					<div className='w-full bg-gray-200 rounded h-2.5'>
+						<div
+							className='bg-blue-600 h-2.5 rounded'
+							style={{ width: `${progress}%` }}
+						></div>
+					</div>
+					<span className='text-sm text-gray-600'>{progress.toFixed(2)}%</span>
+				</div>
+			)}
 			<button
-				onClick={onDelete}
-				className='bg-red-500 text-white p-2 rounded mt-4 disabled:bg-gray-400'
-				disabled={loading}
+				type='submit'
+				className='bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed'
+				disabled={loading || !file || !name.trim()}
 			>
-				{loading ? 'Deleting...' : 'Delete Dashboard'}
+				{loading ? 'Uploading...' : 'Upload'}
 			</button>
-		</div>
+		</form>
 	);
 }
