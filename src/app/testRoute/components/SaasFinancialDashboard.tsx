@@ -1,413 +1,676 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import {
 	LineChart,
 	Line,
-	AreaChart,
-	Area,
-	BarChart,
-	Bar,
 	XAxis,
 	YAxis,
 	CartesianGrid,
 	Tooltip,
+	Legend,
 	ResponsiveContainer,
-	PieChart,
-	Pie,
-	Cell,
-	ComposedChart,
+	BarChart,
+	Bar,
 } from 'recharts';
 import {
-	TrendingUp,
-	TrendingDown,
-	DollarSign,
-	Users,
-	Calendar,
-	Target,
-	Zap,
-	Brain,
-} from 'lucide-react';
-import { Dashboard } from '../page';
+	FaDollarSign as CurrencyDollarIcon,
+	FaChartBar as ChartBarIcon,
+	FaFire as FireIcon,
+	FaClock as ClockIcon,
+	FaMoneyBillWave as CashIcon,
+	FaExclamationTriangle as AlertIcon,
+	FaCheckCircle,
+	FaTimesCircle,
+	FaChartPie as ChartPieIcon,
+	FaChartLine as TrendingUpIcon,
+	FaUsers as UsersIcon,
+	FaCalculator as CalculatorIcon,
+	FaBalanceScale as BalanceIcon,
+} from 'react-icons/fa';
 
-interface MetricCardProps {
-	title: string;
-	value: string | number;
-	change?: number;
-	icon: React.ReactNode;
-	description?: string;
-	isPredicted?: boolean;
-	unit?: string;
+// Props interface for Dashboard
+interface DashboardProps {
+	apiData: Category[];
 }
 
-const COLORS = {
-	primary: '#0f172a',
-	secondary: '#334155',
-	accent: '#3b82f6',
-	success: '#10b981',
-	warning: '#f59e0b',
-	danger: '#ef4444',
-	gray: '#94a3b8',
-	lightGray: '#cbd5e1',
-	predicted: '#94a3b8',
-};
-
-const MetricCard: React.FC<MetricCardProps> = ({
-	title,
-	value,
-	change,
-	icon,
-	description,
-	isPredicted = false,
-	unit,
-}) => (
-	<div className='bg-white rounded-2xl p-6 border border-gray-100 hover:border-gray-200 transition-all duration-200 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-gray-600'>
-		<div className='flex items-start justify-between mb-4'>
-			<div className='p-2 bg-gray-50 rounded-xl dark:bg-gray-700'>{icon}</div>
-			{change !== undefined && (
-				<div
-					className={`flex items-center text-sm ${
-						change >= 0
-							? 'text-green-600 dark:text-green-400'
-							: 'text-red-500 dark:text-red-400'
-					}`}
-				>
-					{change >= 0 ? (
-						<TrendingUp className='w-4 h-4 mr-1' />
-					) : (
-						<TrendingDown className='w-4 h-4 mr-1' />
-					)}
-					<span className='font-medium'>{Math.abs(change)}%</span>
-				</div>
-			)}
-		</div>
-		<div>
-			<div className='flex items-baseline gap-2 mb-1'>
-				<h3
-					className={`text-2xl font-semibold ${
-						isPredicted
-							? 'text-gray-400 dark:text-gray-500'
-							: 'text-gray-900 dark:text-gray-100'
-					}`}
-				>
-					{value}
-					{unit && <span className='text-sm ml-1'>{unit}</span>}
-				</h3>
-				{isPredicted && (
-					<span className='text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full flex items-center gap-1 dark:bg-gray-600 dark:text-gray-300'>
-						<Brain className='w-3 h-3' />
-						Predicted
-					</span>
-				)}
-			</div>
-			<p className='text-gray-600 text-sm mb-1 dark:text-gray-400'>{title}</p>
-			{description && (
-				<p className='text-gray-400 text-xs dark:text-gray-500'>
-					{description}
-				</p>
-			)}
-		</div>
-	</div>
-);
-
-interface EntryData {
+// Define types (repeated for completeness)
+interface DataPoint {
 	t: string;
-	v: any;
-	d: Date | string;
+	v: number;
+	d: string;
+	accountRef?: { name: string; value: string };
 }
 
-interface Entry {
+interface DataItem {
 	i: string;
-	d: EntryData[];
-}
-
-interface Category {
-	cat: string;
-	data: Entry[];
+	d: DataPoint[];
 	comb: any[];
 	sum: any[];
 	chart: string;
 	ids: any[];
 }
 
-const GenericHealthChart: React.FC<{ data: Category[]; metric: string }> = ({
-	data,
-	metric,
-}) => {
-	const metricData = useMemo(() => {
-		return data.map((category) => ({
-			name: category.cat,
-			value:
-				Number(
-					category.data.find((entry: Entry) => entry.d[0]?.t === metric)?.d[0]
-						?.v
-				) || 0,
-			date: new Date(
-				category.data.find((entry: Entry) => entry.d[0]?.t === metric)?.d[0]?.d
-			).toLocaleDateString(),
-		}));
-	}, [data, metric]);
-
-	return (
-		<div className='bg-white rounded-2xl p-6 border border-gray-100 dark:bg-gray-800 dark:border-gray-700'>
-			<div className='flex items-center justify-between mb-8'>
-				<div>
-					<h3 className='text-lg font-semibold text-gray-900 mb-1 dark:text-gray-100'>
-						{metric} Overview
-					</h3>
-					<p className='text-sm text-gray-500 dark:text-gray-400'>
-						Metric summary across categories
-					</p>
-				</div>
-				<div className='text-right'>
-					<p className='text-2xl font-semibold text-gray-900 dark:text-gray-100'>
-						{metricData[0]?.value.toLocaleString() || 'N/A'}
-					</p>
-					<p className='text-sm text-gray-400 dark:text-gray-500'>{metric}</p>
-				</div>
-			</div>
-			<ResponsiveContainer width='100%' height={300}>
-				<BarChart data={metricData}>
-					<CartesianGrid strokeDasharray='3 3' stroke='#f1f5f9' />
-					<XAxis
-						dataKey='name'
-						stroke='#94a3b8'
-						fontSize={12}
-						axisLine={false}
-						tickLine={false}
-					/>
-					<YAxis
-						stroke='#94a3b8'
-						fontSize={12}
-						axisLine={false}
-						tickLine={false}
-					/>
-					<Tooltip
-						contentStyle={{
-							backgroundColor: 'white',
-							border: '1px solid #e2e8f0',
-							borderRadius: '12px',
-							boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-							color: '#1e293b',
-						}}
-						formatter={(value: any) => value.toLocaleString()}
-					/>
-					<Bar dataKey='value' fill={COLORS.primary} />
-				</BarChart>
-			</ResponsiveContainer>
-		</div>
-	);
-};
-
-const ExpenseBreakdownChart: React.FC<{ data: Category[] }> = ({ data }) => {
-	const expenseData = useMemo(() => {
-		const numericTitles = data[0].data
-			.filter((entry: Entry) => typeof entry.d[0]?.v === 'number')
-			.map((entry: Entry) => entry.d[0]?.t);
-		return numericTitles.map((title: string, index: number) => ({
-			category: title,
-			amount:
-				Number(
-					data[0].data.find((entry: Entry) => entry.d[0]?.t === title)?.d[0]?.v
-				) || 0,
-			percentage:
-				((Number(
-					data[0].data.find((entry: Entry) => entry.d[0]?.t === title)?.d[0]?.v
-				) || 0) /
-					(numericTitles.reduce(
-						(sum: number, t: string) =>
-							sum +
-							(Number(
-								data[0].data.find((entry: Entry) => entry.d[0]?.t === t)?.d[0]
-									?.v
-							) || 0),
-						0
-					) || 1)) *
-				100,
-			color: COLORS[`primary`],
-		}));
-	}, [data]);
-
-	return (
-		<div className='bg-white rounded-2xl p-6 border border-gray-100 dark:bg-gray-800 dark:border-gray-700'>
-			<div className='mb-8'>
-				<h3 className='text-lg font-semibold text-gray-900 mb-1 dark:text-gray-100'>
-					Data Breakdown
-				</h3>
-				<p className='text-sm text-gray-500 dark:text-gray-400'>
-					Numeric metrics distribution
-				</p>
-			</div>
-			<ResponsiveContainer width='100%' height={300}>
-				<PieChart>
-					<Pie
-						data={expenseData}
-						cx='50%'
-						cy='50%'
-						labelLine={false}
-						outerRadius={100}
-						fill='#8884d8'
-						dataKey='amount'
-					>
-						{expenseData.map((entry, index) => (
-							<Cell key={`cell-${index}`} fill={entry.color} />
-						))}
-					</Pie>
-					<Tooltip
-						contentStyle={{
-							backgroundColor: 'white',
-							border: '1px solid #e2e8f0',
-							borderRadius: '12px',
-							boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-							color: '#1e293b',
-						}}
-						formatter={(value: any, name: string) => [
-							`${value.toLocaleString()}`,
-							name,
-						]}
-					/>
-				</PieChart>
-			</ResponsiveContainer>
-		</div>
-	);
-};
-
-interface DashboardVisualizationProps {
-	dashboard: Dashboard;
+interface Category {
+	cat: string;
+	data: DataItem[];
+	comb: any[];
+	sum: any[];
+	chart: string;
+	ids: any[];
 }
 
-const DashboardVisualization: React.FC<DashboardVisualizationProps> = ({
-	dashboard,
-}) => {
-	const isFinancial = useMemo(() => {
-		const financialMetrics = [
-			'Profit',
-			'Debt-to-Income Ratio',
-			'AccountAge',
-			'DaysSinceLastTransaction',
-			'DaysUntilNextReview',
-			'cash_runway',
-			'cac_payback',
-			'mrr_growth',
-			'churn_rate',
-			'ltv_cac',
-			'burn_rate',
-			'current_mrr',
-			'predicted_mrr',
-		];
-		return dashboard.data.some((category: Category) =>
-			category.data.some((entry: Entry) =>
-				financialMetrics.includes(entry.d[0]?.t)
-			)
-		);
-	}, [dashboard]);
+const Dashboard: React.FC<DashboardProps> = ({ apiData }) => {
+	// Find relevant categories
+	const plCat =
+		apiData.find((cat) => cat.cat === 'ProfitAndLoss') ||
+		apiData.find((cat) => cat.cat === 'Profit and Loss');
+	const cashFlowCat = apiData.find((cat) => cat.cat === 'CashFlow');
+	const billsCat =
+		apiData.find((cat) => cat.cat === 'Bill') ||
+		apiData.find((cat) => cat.cat === 'Bills');
+	const invoiceCat = apiData.find((cat) => cat.cat === 'Invoice');
+	const paymentCat = apiData.find((cat) => cat.cat === 'Payment');
+	const depositCat = apiData.find((cat) => cat.cat === 'Deposit');
+	const salesByCustomerCat = apiData.find(
+		(cat) => cat.cat === 'SalesByCustomer'
+	);
+	const salesByProductCat = apiData.find((cat) => cat.cat === 'SalesByProduct');
+	const customerBalanceCat = apiData.find(
+		(cat) => cat.cat === 'CustomerBalance'
+	);
+	const customerIncomeCat = apiData.find((cat) => cat.cat === 'CustomerIncome');
+	const budgetCat = apiData.find((cat) => cat.cat === 'Budget');
+	const purchaseCat = apiData.find((cat) => cat.cat === 'Purchase');
+	const recurringCat = apiData.find(
+		(cat) => cat.cat === 'RecurringTransaction'
+	);
+	const transactionListCat = apiData.find(
+		(cat) => cat.cat === 'TransactionList'
+	);
+	const itemCat = apiData.find((cat) => cat.cat === 'Item');
+	const billPaymentCat = apiData.find((cat) => cat.cat === 'BillPayment');
+	const salesReceiptCat = apiData.find((cat) => cat.cat === 'SalesReceipt');
 
-	const numericMetrics = useMemo(() => {
-		return dashboard.data[0].data
-			.filter((entry: Entry) => typeof entry.d[0]?.v === 'number')
-			.map((entry: Entry) => ({
-				title: entry.d[0]?.t,
-				value: Number(entry.d[0]?.v),
-			}));
-	}, [dashboard]);
+	// Extract key metrics from P&L
+	const totalRevenue =
+		plCat?.data.find((item) => item.d[0].t === 'Total Income')?.d[0].v || 0;
+	const grossProfit =
+		plCat?.data.find((item) => item.d[0].t === 'Gross Profit')?.d[0].v || 0;
+	const totalExpenses =
+		plCat?.data.find((item) => item.d[0].t === 'Total Expenses')?.d[0].v || 0;
+	const netProfit =
+		plCat?.data.find((item) => item.d[0].t === 'Net Income')?.d[0].v || 0;
 
-	const aiInsight = useMemo(() => {
-		if (isFinancial) {
-			const profit =
-				numericMetrics.find((m) => m.title === 'Profit')?.value || 0;
-			return `Based on the latest data, your financial metrics indicate a ${
-				profit >= 0 ? 'positive' : 'negative'
-			} trend with a Profit of ${profit.toFixed(
+	// From CashFlow
+	const operatingCashFlow =
+		cashFlowCat?.data.find((item) =>
+			item.d[0].t.toLowerCase().includes('operating activities')
+		)?.d[0].v || 0;
+	const investingCashFlow =
+		cashFlowCat?.data.find((item) =>
+			item.d[0].t.toLowerCase().includes('investing activities')
+		)?.d[0].v || 0;
+	const financingCashFlow =
+		cashFlowCat?.data.find((item) =>
+			item.d[0].t.toLowerCase().includes('financing activities')
+		)?.d[0].v || 0;
+	const netCashFlow = operatingCashFlow + investingCashFlow + financingCashFlow;
+
+	// Bills total
+	const totalBills =
+		billsCat?.data.reduce((sum, item) => sum + (item.d[0].v || 0), 0) || 0;
+
+	// Inflows from Deposits and Payments
+	const totalDeposits =
+		depositCat?.data.reduce((sum, item) => sum + (item.d[0].v || 0), 0) || 0;
+	const totalPayments =
+		paymentCat?.data.reduce((sum, item) => sum + (item.d[0].v || 0), 0) || 0;
+
+	// Revenue from Invoices and SalesReceipts
+	const invoiceRevenue =
+		invoiceCat?.data.reduce((sum, item) => sum + (item.d[0].v || 0), 0) || 0;
+	const salesReceiptRevenue =
+		salesReceiptCat?.data.reduce((sum, item) => sum + (item.d[0].v || 0), 0) ||
+		0;
+	const totalRevenueFromSales = invoiceRevenue + salesReceiptRevenue;
+
+	// Outflows from Purchases and BillPayments
+	const totalPurchases =
+		purchaseCat?.data.reduce((sum, item) => sum + (item.d[0].v || 0), 0) || 0;
+	const totalBillPayments =
+		billPaymentCat?.data.reduce((sum, item) => sum + (item.d[0].v || 0), 0) ||
+		0;
+
+	// Customer metrics from SalesByCustomer and CustomerIncome
+	const topCustomers =
+		salesByCustomerCat?.data
+			?.sort((a, b) => b.d[0].v - a.d[0].v)
+			.slice(0, 5)
+			.map((item) => ({ name: item.d[0].t, revenue: item.d[0].v })) || [];
+
+	// Product metrics from SalesByProduct
+	const topProducts =
+		salesByProductCat?.data
+			?.sort((a, b) => b.d[0].v - a.d[0].v)
+			.slice(0, 5)
+			.map((item) => ({ name: item.d[0].t, sales: item.d[0].v })) || [];
+
+	// AR from CustomerBalance
+	const totalAR =
+		customerBalanceCat?.data.reduce(
+			(sum, item) => sum + (item.d[0].v || 0),
+			0
+		) || 0;
+
+	// Budget vs Actual (simple variance)
+	const budgetTotal =
+		budgetCat?.data.reduce((sum, item) => sum + (item.d[0].v || 0), 0) || 0;
+	const budgetVariance = budgetTotal - totalExpenses;
+
+	// Recurring revenue estimate from RecurringTransaction
+	const recurringRevenue =
+		recurringCat?.data
+			.filter((item) => item.d[0].t.toLowerCase().includes('income'))
+			.reduce((sum, item) => sum + (item.d[0].v || 0), 0) || 0;
+
+	// Mocked or calculated metrics
+	const mrrGrowth = recurringRevenue > 0 ? 5.0 : 0; // Assume 5% growth if recurring exists
+	const churnRate = 0; // Assume, or calculate from customer data if historical
+	const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+	const monthlyBurn = totalExpenses + totalBills + totalPurchases; // Combined outflows
+	const currentBalance = totalDeposits + totalPayments - monthlyBurn + totalAR; // Approx balance
+	const cashRunwayMonths =
+		monthlyBurn > 0 ? Math.floor(currentBalance / monthlyBurn) : Infinity;
+	const netProfitMargin =
+		totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+	const ltv =
+		topCustomers.reduce((sum, cust) => sum + cust.revenue, 0) /
+			topCustomers.length || 0; // Avg LTV approx
+	const cac = monthlyBurn / topCustomers.length || 0; // Approx CAC
+	const ltvCacRatio = cac > 0 ? ltv / cac : 0;
+
+	// Top 3 Costs (from expenses in P&L + Purchases)
+	const expenseItems =
+		plCat?.data.filter((item) => {
+			const t = item.d[0].t.toLowerCase();
+			return (
+				t.includes('expense') ||
+				t.includes('cost') ||
+				t.includes('fees') ||
+				t.includes('rent') ||
+				t.includes('utilities')
+			);
+		}) || [];
+	const purchaseItems =
+		purchaseCat?.data.map((item) => ({
+			d: [{ t: 'Purchase', v: item.d[0].v }],
+		})) || [];
+	const allExpenses = [...expenseItems, ...purchaseItems];
+	const topCosts = allExpenses
+		.sort((a, b) => b.d[0].v - a.d[0].v)
+		.slice(0, 3)
+		.map((item) => ({
+			name: item.d[0].t.replace(/Total /g, ''),
+			amount: item.d[0].v,
+		}));
+
+	// Revenue Data (single point, mock trend)
+	const date = plCat?.data[0]?.d[0].d || '2025-07-27';
+	const month = new Date(date).toLocaleString('default', { month: 'short' });
+	const revenueData = [
+		{ month, thisYear: totalRevenue, lastYear: totalRevenue * 0.9 }, // Assume last year 90%
+	];
+
+	// Expense Breakdown Data
+	const expenseData = allExpenses.map((item) => ({
+		name: item.d[0].t.replace(/Total /g, ''),
+		spend: item.d[0].v,
+	}));
+
+	// Income Breakdown Data
+	const incomeItems =
+		plCat?.data.filter((item) => {
+			const t = item.d[0].t.toLowerCase();
+			return (
+				t.includes('income') || t.includes('sales') || t.includes('services')
+			);
+		}) || [];
+	const incomeData = incomeItems.map((item) => ({
+		name: item.d[0].t.replace(/Total /g, ''),
+		amount: item.d[0].v,
+	}));
+
+	// Sparkline data (mock)
+	const positiveSpark = [
+		{ value: 10 },
+		{ value: 15 },
+		{ value: 12 },
+		{ value: 18 },
+		{ value: 20 },
+		{ value: 25 },
+		{ value: 30 },
+	];
+	const negativeSpark = [
+		{ value: 30 },
+		{ value: 25 },
+		{ value: 28 },
+		{ value: 22 },
+		{ value: 20 },
+		{ value: 15 },
+		{ value: 10 },
+	];
+
+	// AI Alerts based on metrics
+	const aiAlerts = [];
+	if (netProfitMargin > 15)
+		aiAlerts.push({
+			message: `Net Profit Margin at ${netProfitMargin.toFixed(
 				1
-			)}. Review strategies for optimization at 03:57 PM CEST, Monday, June 23, 2025.`;
-		}
-		return `The data shows varied metrics. Consult relevant guidelines for interpretation at 03:57 PM CEST, Monday, June 23, 2025.`;
-	}, [isFinancial, numericMetrics]);
+			)}% - Strong profitability!`,
+			type: 'good',
+		});
+	if (totalExpenses / totalRevenue > 0.5)
+		aiAlerts.push({
+			message: `Expenses at ${((totalExpenses / totalRevenue) * 100).toFixed(
+				1
+			)}% of revenue - Review costs.`,
+			type: 'warning',
+		});
+	if (totalBills > totalRevenue * 0.5)
+		aiAlerts.push({
+			message: `Bills total $${totalBills.toFixed(
+				2
+			)} exceeding 50% of revenue - Potential cash flow issue!`,
+			type: 'bad',
+		});
+	if (grossMargin < 90)
+		aiAlerts.push({
+			message: `Gross Margin at ${grossMargin.toFixed(1)}% - Optimize COGS.`,
+			type: 'warning',
+		});
+	if (cashRunwayMonths < 6)
+		aiAlerts.push({
+			message: `Cash Runway at ${cashRunwayMonths} months - Consider funding.`,
+			type: 'bad',
+		});
+	if (ltvCacRatio < 3)
+		aiAlerts.push({
+			message: `LTV/CAC at ${ltvCacRatio.toFixed(
+				1
+			)} - Improve customer retention.`,
+			type: 'warning',
+		});
+
+	// Runway Forecast (mock balance)
+	const [extraSpend, setExtraSpend] = useState(0);
+	const adjustedRunway =
+		monthlyBurn > 0
+			? Math.floor(currentBalance / (monthlyBurn + extraSpend))
+			: Infinity;
+	const runwayForecast = [
+		{ month: 'Aug', balance: currentBalance - monthlyBurn },
+		{ month: 'Sep', balance: currentBalance - monthlyBurn * 2 },
+		{ month: 'Oct', balance: currentBalance - monthlyBurn * 3 },
+		{ month: 'Nov', balance: currentBalance - monthlyBurn * 4 },
+		{ month: 'Dec', balance: currentBalance - monthlyBurn * 5 },
+		{ month: 'Jan', balance: currentBalance - monthlyBurn * 6 },
+	];
+	const adjustedForecast = runwayForecast.map((point, index) => ({
+		month: point.month,
+		balance: point.balance - extraSpend * (index + 1),
+	}));
+
+	const runwayColor = cashRunwayMonths < 6 ? 'text-red-500' : 'text-green-500';
+	const cashFlowColor = netProfit > 0 ? 'text-green-500' : 'text-red-500';
 
 	return (
-		<div className='min-h-screen bg-gray-50 p-6 dark:bg-gray-900'>
-			<div className='max-w-7xl mx-auto'>
-				<div className='mb-8'>
-					<h1 className='text-3xl font-semibold text-gray-900 mb-2 dark:text-gray-100'>
-						{dashboard.name}
-					</h1>
-					<p className='text-gray-500 dark:text-gray-400'>
-						{isFinancial ? 'Financial Insights' : 'General Data Insights'} with
-						AI-powered calculations
-					</p>
+		<div className='min-h-screen text-white p-6'>
+			<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6'>
+				<div className='bg-gray-900 p-6 rounded-xl shadow-md flex items-center justify-between'>
+					<div className='flex flex-col gap-1'>
+						<h2 className='text-sm font-medium text-gray-400'>
+							Money Coming In
+						</h2>
+						<p className='text-2xl font-bold'>${totalRevenue.toFixed(2)}</p>
+						<p className='text-xs text-green-400'>From QuickBooks P&L</p>
+					</div>
+					<ResponsiveContainer width={120} height={50}>
+						<LineChart data={positiveSpark}>
+							<Line
+								type='monotone'
+								dataKey='value'
+								stroke='#10B981'
+								dot={false}
+								strokeWidth={1.5}
+							/>
+						</LineChart>
+					</ResponsiveContainer>
 				</div>
-
-				<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
-					{numericMetrics.slice(0, 4).map((metric) => (
-						<MetricCard
-							key={metric.title}
-							title={metric.title}
-							value={metric.value.toFixed(1)}
-							icon={<DollarSign className='w-5 h-5' />}
-							unit={
-								metric.title.toLowerCase().includes('ratio')
-									? ''
-									: metric.title.toLowerCase().includes('days') ||
-									  metric.title.toLowerCase().includes('age')
-									? 'days'
-									: '$'
-							}
-						/>
-					))}
+				<div className='bg-gray-900 p-6 rounded-xl shadow-md flex items-center justify-between'>
+					<div className='flex flex-col gap-1'>
+						<h2 className='text-sm font-medium text-gray-400'>
+							Money Going Out
+						</h2>
+						<p className='text-2xl font-bold'>${monthlyBurn.toFixed(2)}</p>
+						<p className='text-xs text-red-400'>From expenses + bills</p>
+					</div>
+					<ResponsiveContainer width={120} height={50}>
+						<LineChart data={negativeSpark}>
+							<Line
+								type='monotone'
+								dataKey='value'
+								stroke='#EF4444'
+								dot={false}
+								strokeWidth={1.5}
+							/>
+						</LineChart>
+					</ResponsiveContainer>
 				</div>
+				<div className='bg-gray-900 p-6 rounded-xl shadow-md flex items-center justify-between'>
+					<div className='flex flex-col gap-1'>
+						<h2 className='text-sm font-medium text-gray-400'>Net Cash Flow</h2>
+						<p className='text-2xl font-bold'>${netCashFlow.toFixed(2)}</p>
+						<p className='text-xs text-gray-300'>From CashFlow Report</p>
+					</div>
+					<ResponsiveContainer width={120} height={50}>
+						<LineChart data={positiveSpark}>
+							<Line
+								type='monotone'
+								dataKey='value'
+								stroke='#10B981'
+								dot={false}
+								strokeWidth={1.5}
+							/>
+						</LineChart>
+					</ResponsiveContainer>
+				</div>
+				<div className='bg-gray-900 p-6 rounded-xl shadow-md flex items-center justify-between'>
+					<div className='flex flex-col gap-1'>
+						<h2 className='text-sm font-medium text-gray-400'>AR Balance</h2>
+						<p className='text-2xl font-bold'>${totalAR.toFixed(2)}</p>
+						<p className='text-xs text-gray-300'>From CustomerBalance</p>
+					</div>
+					<ResponsiveContainer width={120} height={50}>
+						<LineChart data={positiveSpark}>
+							<Line
+								type='monotone'
+								dataKey='value'
+								stroke='#10B981'
+								dot={false}
+								strokeWidth={1.5}
+							/>
+						</LineChart>
+					</ResponsiveContainer>
+				</div>
+			</div>
 
-				<div className='bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-8 dark:bg-blue-900 dark:border-blue-700'>
-					<div className='flex items-start gap-4'>
-						<div className='p-2 bg-blue-100 rounded-xl dark:bg-blue-800'>
-							<Brain className='w-5 h-5 text-blue-600 dark:text-blue-300' />
-						</div>
-						<div className='flex-1'>
-							<h4 className='text-lg font-semibold text-blue-900 mb-2 dark:text-blue-200'>
-								AI Insight
-							</h4>
-							<p className='text-blue-800 mb-4 dark:text-blue-300'>
-								{aiInsight}
+			<div className='w-full flex justify-between gap-20'>
+				<div className='mb-4 w-full'>
+					<div className='grid bg-gray-900 rounded-lg py-8 px-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-8'>
+						<div className='flex flex-col items-center text-center pb-3 border-b-2 border-solid border-gray-600'>
+							<ClockIcon className='h-5 w-5 text-blue-400 mb-1' />
+							<h2 className='text-xs font-medium text-gray-400'>
+								Net Profit Margin
+							</h2>
+							<p className={`text-lg font-bold ${cashFlowColor}`}>
+								{netProfitMargin.toFixed(1)}%
 							</p>
-							{dashboard.recommendations?.length > 0 && (
-								<div>
-									<p className='text-blue-800 mb-2 dark:text-blue-300'>
-										Recommended Calculations:
-									</p>
-									<ul className='space-y-2'>
-										{dashboard.recommendations.map((rec, index) => (
-											<li
-												key={index}
-												className='bg-white p-3 rounded-lg dark:bg-gray-800'
-											>
-												<span className='text-blue-600 dark:text-blue-300'>
-													{rec.result_name} - Calculate using{' '}
-													{rec.parameters?.join(', ') || ''} ({rec.operator})
-												</span>
-											</li>
-										))}
-									</ul>
-								</div>
-							)}
+							<p className='text-xs text-gray-500 mt-0.5'>
+								Calculated from P&L
+							</p>
+						</div>
+						<div className='flex flex-col items-center text-center pb-3 border-b-2 border-solid border-gray-600'>
+							<CashIcon className='h-5 w-5 text-green-400 mb-1' />
+							<h2 className='text-xs font-medium text-gray-400'>Net Profit</h2>
+							<p className={`text-lg font-bold ${cashFlowColor}`}>
+								${netProfit.toFixed(0)}
+							</p>
+							<p className='text-xs text-gray-500 mt-0.5'>From QuickBooks</p>
+						</div>
+						<div className='flex flex-col items-center text-center pb-3 border-b-2 border-solid border-gray-600'>
+							<FireIcon className='h-5 w-5 text-red-400 mb-1' />
+							<h2 className='text-xs font-medium text-gray-400'>Top Costs</h2>
+							<ul className='text-xs mt-0.5'>
+								{topCosts.map((cost, i) => (
+									<li key={i} className='text-gray-300'>
+										{cost.name}: ${cost.amount.toFixed(0)}
+									</li>
+								))}
+							</ul>
+							<p className='text-xs text-gray-500 mt-0.5'>From QuickBooks</p>
+						</div>
+						<div className='flex flex-col items-center text-center pb-3 border-b-2 border-solid border-gray-600'>
+							<TrendingUpIcon className='h-5 w-5 text-purple-400 mb-1' />
+							<h2 className='text-xs font-medium text-gray-400'>
+								Gross Margin
+							</h2>
+							<p className='text-lg font-bold'>{grossMargin.toFixed(1)}%</p>
+							<p className='text-xs text-gray-500 mt-0.5'>From QuickBooks</p>
+						</div>
+						<div className='flex flex-col items-center text-center pb-3 border-b-2 border-solid border-gray-600'>
+							<UsersIcon className='h-5 w-5 text-orange-400 mb-1' />
+							<h2 className='text-xs font-medium text-gray-400'>
+								LTV/CAC Ratio
+							</h2>
+							<p className='text-lg font-bold'>{ltvCacRatio.toFixed(1)}</p>
+							<p className='text-xs text-gray-500 mt-0.5'>From Customer Data</p>
+						</div>
+						<div className='flex flex-col items-center text-center pb-3 border-b-2 border-solid border-gray-600'>
+							<CalculatorIcon className='h-5 w-5 text-indigo-400 mb-1' />
+							<h2 className='text-xs font-medium text-gray-400'>
+								Budget Variance
+							</h2>
+							<p className='text-lg font-bold'>${budgetVariance.toFixed(0)}</p>
+							<p className='text-xs text-gray-500 mt-0.5'>From Budget</p>
 						</div>
 					</div>
 				</div>
 
-				<div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8'>
-					{numericMetrics.slice(0, 2).map((metric, index) => (
-						<GenericHealthChart
-							key={index}
-							data={dashboard.data}
-							metric={metric.title}
-						/>
-					))}
+				<div className='bg-gray-900 w-[70%] p-4 rounded-xl shadow-md mb-6'>
+					<h2 className='text-md font-bold text-gray-400 mb-4'>
+						AI Alerts - Fix This Now
+					</h2>
+					<ul className='space-y-2'>
+						{aiAlerts.map((alert, index) => {
+							let icon, color;
+							if (alert.type === 'good') {
+								icon = <FaCheckCircle className='h-5 w-5 mr-2' />;
+								color = 'text-green-400';
+							} else if (alert.type === 'warning') {
+								icon = <AlertIcon className='h-5 w-5 mr-2' />;
+								color = 'text-yellow-400';
+							} else {
+								icon = <FaTimesCircle className='h-5 w-5 mr-2' />;
+								color = 'text-red-400';
+							}
+							return (
+								<li
+									key={index}
+									className={`flex items-center ${color} text-[14px] my-1`}
+								>
+									{icon}
+									{alert.message}
+								</li>
+							);
+						})}
+					</ul>
 				</div>
+			</div>
 
-				<div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
-					<ExpenseBreakdownChart data={dashboard.data} />
+			<div className='bg-gray-900 p-4 rounded-xl shadow-md mb-6'>
+				<div className='mb-3'>
+					<h2 className='text-sm font-medium text-gray-400 mb-4'>
+						Runway Forecast (Add extra spend for scenario modeling)
+					</h2>
+					<div className='flex items-center space-x-4'>
+						<input
+							type='number'
+							placeholder='Extra monthly spend ($)'
+							value={extraSpend}
+							onChange={(e) => setExtraSpend(Number(e.target.value))}
+							className='bg-gray-700 text-white p-2 rounded-md text-sm'
+						/>
+						<p className='text-sm text-gray-300'>
+							New Runway:{' '}
+							<span className='font-bold'>{adjustedRunway} months</span>
+						</p>
+					</div>
 				</div>
+				<ResponsiveContainer width='100%' height={250}>
+					<LineChart data={adjustedForecast}>
+						<CartesianGrid strokeDasharray='3 3' stroke='#374151' />
+						<XAxis dataKey='month' stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+						<YAxis stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+						<Tooltip
+							contentStyle={{
+								backgroundColor: '#1F2937',
+								border: 'none',
+								fontSize: 12,
+							}}
+						/>
+						<Legend wrapperStyle={{ fontSize: 12 }} />
+						<Line
+							type='monotone'
+							dataKey='balance'
+							stroke='#3B82F6'
+							name='Predicted Cash'
+						/>
+					</LineChart>
+				</ResponsiveContainer>
+				<p className='text-xs text-gray-500 mt-2'>
+					From: QuickBooks (mock balance)
+				</p>
+			</div>
+
+			<div className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-6'>
+				<div className='bg-gray-900 p-4 rounded-xl shadow-md'>
+					<h2 className='text-sm font-medium text-gray-400 mb-4'>
+						Revenue Trend (Single Period)
+					</h2>
+					<ResponsiveContainer width='100%' height={250}>
+						<BarChart data={revenueData}>
+							<CartesianGrid strokeDasharray='3 3' stroke='#374151' />
+							<XAxis dataKey='month' stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+							<YAxis stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+							<Tooltip
+								contentStyle={{
+									backgroundColor: '#1F2937',
+									border: 'none',
+									fontSize: 12,
+								}}
+							/>
+							<Legend wrapperStyle={{ fontSize: 12 }} />
+							<Bar
+								dataKey='thisYear'
+								fill='#3B82F6'
+								name='This Year'
+								radius={[4, 4, 0, 0]}
+							/>
+							<Bar
+								dataKey='lastYear'
+								fill='#A78BFA'
+								name='Last Year (est.)'
+								radius={[4, 4, 0, 0]}
+							/>
+						</BarChart>
+					</ResponsiveContainer>
+					<p className='text-xs text-gray-500 mt-2'>From: QuickBooks</p>
+				</div>
+				<div className='bg-gray-900 p-4 rounded-xl shadow-md'>
+					<h2 className='text-sm font-medium text-gray-400 mb-4'>
+						Expense Breakdown
+					</h2>
+					<ResponsiveContainer width='100%' height={250}>
+						<BarChart data={expenseData}>
+							<CartesianGrid strokeDasharray='3 3' stroke='#374151' />
+							<XAxis dataKey='name' stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+							<YAxis stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+							<Tooltip
+								contentStyle={{
+									backgroundColor: '#1F2937',
+									border: 'none',
+									fontSize: 12,
+								}}
+							/>
+							<Legend wrapperStyle={{ fontSize: 12 }} />
+							<Bar dataKey='spend' fill='#3B82F6' radius={[4, 4, 0, 0]} />
+						</BarChart>
+					</ResponsiveContainer>
+					<p className='text-xs text-gray-500 mt-2'>From: QuickBooks</p>
+				</div>
+			</div>
+
+			<div className='bg-gray-900 p-4 rounded-xl shadow-md mb-6'>
+				<h2 className='text-sm font-medium text-gray-400 mb-4'>
+					Income Breakdown
+				</h2>
+				<ResponsiveContainer width='100%' height={250}>
+					<BarChart data={incomeData}>
+						<CartesianGrid strokeDasharray='3 3' stroke='#374151' />
+						<XAxis dataKey='name' stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+						<YAxis stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+						<Tooltip
+							contentStyle={{
+								backgroundColor: '#1F2937',
+								border: 'none',
+								fontSize: 12,
+							}}
+						/>
+						<Legend wrapperStyle={{ fontSize: 12 }} />
+						<Bar dataKey='amount' fill='#A78BFA' radius={[4, 4, 0, 0]} />
+					</BarChart>
+				</ResponsiveContainer>
+				<p className='text-xs text-gray-500 mt-2'>From: QuickBooks</p>
+			</div>
+
+			<div className='bg-gray-900 p-4 rounded-xl shadow-md mb-6'>
+				<h2 className='text-sm font-medium text-gray-400 mb-4'>
+					Top Customers by Revenue
+				</h2>
+				<ResponsiveContainer width='100%' height={250}>
+					<BarChart data={topCustomers}>
+						<CartesianGrid strokeDasharray='3 3' stroke='#374151' />
+						<XAxis dataKey='name' stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+						<YAxis stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+						<Tooltip
+							contentStyle={{
+								backgroundColor: '#1F2937',
+								border: 'none',
+								fontSize: 12,
+							}}
+						/>
+						<Legend wrapperStyle={{ fontSize: 12 }} />
+						<Bar dataKey='revenue' fill='#10B981' radius={[4, 4, 0, 0]} />
+					</BarChart>
+				</ResponsiveContainer>
+				<p className='text-xs text-gray-500 mt-2'>From: SalesByCustomer</p>
+			</div>
+
+			<div className='bg-gray-900 p-4 rounded-xl shadow-md mb-6'>
+				<h2 className='text-sm font-medium text-gray-400 mb-4'>
+					Top Products by Sales
+				</h2>
+				<ResponsiveContainer width='100%' height={250}>
+					<BarChart data={topProducts}>
+						<CartesianGrid strokeDasharray='3 3' stroke='#374151' />
+						<XAxis dataKey='name' stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+						<YAxis stroke='#9CA3AF' tick={{ fontSize: 12 }} />
+						<Tooltip
+							contentStyle={{
+								backgroundColor: '#1F2937',
+								border: 'none',
+								fontSize: 12,
+							}}
+						/>
+						<Legend wrapperStyle={{ fontSize: 12 }} />
+						<Bar dataKey='sales' fill='#A78BFA' radius={[4, 4, 0, 0]} />
+					</BarChart>
+				</ResponsiveContainer>
+				<p className='text-xs text-gray-500 mt-2'>From: SalesByProduct</p>
 			</div>
 		</div>
 	);
 };
 
-export default DashboardVisualization;
+export default Dashboard;
